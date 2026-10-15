@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Yamuna Khadka | Full stack developer</title>
+  <meta name="description"
+    content="Portfolio of a full stack developer building complete web applications, from interface to database.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link
+    href="https://fonts.googleapis.com/css2?family=Syne:wght@400..800&family=Outfit:wght@300..600&family=Yellowtail&display=swap"
+    rel="stylesheet">
+  <script>
+    /* Runs before first paint: enables the reveal styles and restores the saved theme. */
+    document.documentElement.classList.add('js');
+    try {
+      var t = localStorage.getItem('theme');
+      if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
+    } catch (e) { }
+  </script>
+</head>
+
+<body>
+  <div id="root"></div>
+  <noscript>
+    <p style="padding:120px 24px;text-align:center">This portfolio needs JavaScript to display its content.</p>
+  </noscript>
+  <script type="module" src="/src/main.jsx"></script>
+</body>
+
+</html>
