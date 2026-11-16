@@ -5,7 +5,7 @@ import { finePointer, imgOk, reduce, url } from '../lib/utils.js';
 import Art from './Art.jsx';
 import { ArrowIcon } from './Icons.jsx';
 import Reveal from './Reveal.jsx';
-import { SectionHead } from './SectionHead.jsx';
+import SectionHead from './SectionHead.jsx';
 import { imageUrl } from '../lib/api.js';
 import { EmptyState, ErrorState, LoadingState } from './RequestState.jsx';
 

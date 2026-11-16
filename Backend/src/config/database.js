@@ -181,6 +181,12 @@ async function ensureSchema() {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       PRIMARY KEY (id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
+    `CREATE TABLE IF NOT EXISTS site_settings (
+    setting_key VARCHAR(100) NOT NULL,
+    setting_value TEXT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (setting_key)
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;`,
   ];
 
   for (const sql of schema) {

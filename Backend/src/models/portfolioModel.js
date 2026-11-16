@@ -1,15 +1,30 @@
 import { randomUUID } from 'node:crypto';
-import { getPool, isMysqlEnabled, readDatabaseSnapshot, useFallbackStore } from '../config/database.js';
+import {
+  getPool,
+  isMysqlEnabled,
+  readDatabaseSnapshot,
+  useFallbackStore,
+} from '../config/database.js';
 import { readPortfolioStore, writePortfolioStore } from '../utils/jsonStore.js';
 
-const slugify = (value = '') => String(value).toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'project';
+const slugify = (value = '') =>
+  String(value)
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'project';
 const makeSlug = (title, id) => `${slugify(title)}-${id.slice(0, 8)}`;
-const missingProject = () => Object.assign(new Error('Project not found.'), { statusCode: 404 });
+const missingProject = () =>
+  Object.assign(new Error('Project not found.'), { statusCode: 404 });
 
 const parseJson = (value, fallback) => {
   if (!value) return fallback;
   if (typeof value === 'object') return value;
-  try { return JSON.parse(value); } catch { return fallback; }
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
 };
 
 const asProjectRow = (project) => ({
@@ -18,7 +33,14 @@ const asProjectRow = (project) => ({
   slug: project.slug || slugify(project.title || ''),
   description: String(project.desc || project.description || '').trim(),
   image: String(project.image || '').trim(),
-  technologies: JSON.stringify(Array.isArray(project.tags) ? project.tags : String(project.tags || '').split(',').map((tag) => tag.trim()).filter(Boolean)),
+  technologies: JSON.stringify(
+    Array.isArray(project.tags)
+      ? project.tags
+      : String(project.tags || '')
+          .split(',')
+          .map((tag) => tag.trim())
+          .filter(Boolean),
+  ),
   project_url: String(project.demo || project.project_url || '').trim(),
   github_url: String(project.code || project.github_url || '').trim(),
   is_published: !!project.published,
@@ -28,7 +50,9 @@ const asAboutRow = (about) => ({
   id: about.id || randomUUID(),
   title: String(about.title || 'About me').trim(),
   description: String(about.description || '').trim(),
-  additional_description: String(about.additionalDescription || about.additional_description || '').trim(),
+  additional_description: String(
+    about.additionalDescription || about.additional_description || '',
+  ).trim(),
   highlights: JSON.stringify(Array.isArray(about.highlights) ? about.highlights : []),
 });
 
@@ -164,22 +188,50 @@ const toMessageOutput = (row) => ({
 async function getPublicDataFromDb() {
   const snapshot = await readDatabaseSnapshot();
   return {
-    projects: (snapshot.projects || []).map(toProjectOutput).filter((item) => item.published),
-    about: toAboutOutput(snapshot.about || { title: 'About me', description: '', additional_description: '', highlights: '[]' }),
-    services: (snapshot.services || []).map(toServiceOutput).filter((item) => item.published !== false),
-    capabilities: (snapshot.services || []).map(toServiceOutput).filter((item) => item.published !== false),
+    projects: (snapshot.projects || [])
+      .map(toProjectOutput)
+      .filter((item) => item.published),
+    about: toAboutOutput(
+      snapshot.about || {
+        title: 'About me',
+        description: '',
+        additional_description: '',
+        highlights: '[]',
+      },
+    ),
+    services: (snapshot.services || [])
+      .map(toServiceOutput)
+      .filter((item) => item.published !== false),
+    capabilities: (snapshot.services || [])
+      .map(toServiceOutput)
+      .filter((item) => item.published !== false),
     stack: (snapshot.stack || []).map(toStackOutput),
-    experience: (snapshot.experience || []).map(toExperienceOutput).filter((item) => item.published !== false),
-    education: (snapshot.education || []).map(toEducationOutput).filter((item) => item.published !== false),
-    achievements: (snapshot.achievements || []).map(toAchievementOutput).filter((item) => item.published !== false),
+    experience: (snapshot.experience || [])
+      .map(toExperienceOutput)
+      .filter((item) => item.published !== false),
+    education: (snapshot.education || [])
+      .map(toEducationOutput)
+      .filter((item) => item.published !== false),
+    achievements: (snapshot.achievements || [])
+      .map(toAchievementOutput)
+      .filter((item) => item.published !== false),
     messages: (snapshot.messages || []).map(toMessageOutput),
   };
 }
 
 export async function getPublicPortfolio() {
   if (isMysqlEnabled() && !useFallbackStore()) {
-    return getPublicDataFromDb();
+    const payload = await getPublicDataFromDb();
+    const cvUrl = await getCvUrl();
+
+    return {
+      ...payload,
+      site: {
+        cvUrl,
+      },
+    };
   }
+
   const snapshot = await readPortfolioStore();
   return {
     ...snapshot,
@@ -202,7 +254,14 @@ export async function getAdminCollections() {
     const snapshot = await readDatabaseSnapshot();
     return {
       projects: (snapshot.projects || []).map(toProjectOutput),
-      about: snapshot.about ? toAboutOutput(snapshot.about) : { title: 'About me', description: '', additionalDescription: '', highlights: [] },
+      about: snapshot.about
+        ? toAboutOutput(snapshot.about)
+        : {
+            title: 'About me',
+            description: '',
+            additionalDescription: '',
+            highlights: [],
+          },
       services: (snapshot.services || []).map(toServiceOutput),
       stack: (snapshot.stack || []).map(toStackOutput),
       experience: (snapshot.experience || []).map(toExperienceOutput),
@@ -215,7 +274,17 @@ export async function getAdminCollections() {
   const snapshot = await readPortfolioStore();
   return {
     projects: snapshot.projects || [],
-    about: snapshot.about && typeof snapshot.about === 'object' && !Array.isArray(snapshot.about) ? snapshot.about : { title: 'About me', description: '', additionalDescription: '', highlights: [] },
+    about:
+      snapshot.about &&
+      typeof snapshot.about === 'object' &&
+      !Array.isArray(snapshot.about)
+        ? snapshot.about
+        : {
+            title: 'About me',
+            description: '',
+            additionalDescription: '',
+            highlights: [],
+          },
     services: snapshot.services || [],
     stack: snapshot.stack || [],
     experience: snapshot.experience || [],
@@ -238,7 +307,10 @@ export async function getProjectById(id) {
 export async function getPublishedProjectBySlug(slug) {
   if (isMysqlEnabled() && !useFallbackStore()) {
     const pool = getPool();
-    const [rows] = await pool.query('SELECT * FROM projects WHERE slug = ? AND is_published = 1 LIMIT 1', [slug]);
+    const [rows] = await pool.query(
+      'SELECT * FROM projects WHERE slug = ? AND is_published = 1 LIMIT 1',
+      [slug],
+    );
     return rows.length ? toProjectOutput(rows[0]) : null;
   }
 
@@ -258,7 +330,9 @@ export async function addProject(payload) {
     slug: makeSlug(payload.title || '', id),
     desc: String(payload.description || payload.desc || '').trim(),
     description: String(payload.description || payload.desc || '').trim(),
-    tags: Array.isArray(payload.technologies || payload.tags) ? (payload.technologies || payload.tags) : [],
+    tags: Array.isArray(payload.technologies || payload.tags)
+      ? payload.technologies || payload.tags
+      : [],
     image: String(payload.image || '').trim(),
     demo: String(payload.project_url || payload.demo || '').trim(),
     code: String(payload.github_url || payload.code || '').trim(),
@@ -271,7 +345,17 @@ export async function addProject(payload) {
     const pool = getPool();
     await pool.query(
       'INSERT INTO projects (id, title, slug, description, image, technologies, project_url, github_url, is_published) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
-      [row.id, row.title, row.slug, row.description, row.image, row.technologies, row.project_url, row.github_url, row.is_published ? 1 : 0],
+      [
+        row.id,
+        row.title,
+        row.slug,
+        row.description,
+        row.image,
+        row.technologies,
+        row.project_url,
+        row.github_url,
+        row.is_published ? 1 : 0,
+      ],
     );
     return project;
   }
@@ -290,7 +374,9 @@ export async function updateProject(id, payload) {
     slug: makeSlug(payload.title || '', id),
     desc: String(payload.description || payload.desc || '').trim(),
     description: String(payload.description || payload.desc || '').trim(),
-    tags: Array.isArray(payload.technologies || payload.tags) ? (payload.technologies || payload.tags) : [],
+    tags: Array.isArray(payload.technologies || payload.tags)
+      ? payload.technologies || payload.tags
+      : [],
     image: String(payload.image || '').trim(),
     demo: String(payload.project_url || payload.demo || '').trim(),
     code: String(payload.github_url || payload.code || '').trim(),
@@ -299,12 +385,24 @@ export async function updateProject(id, payload) {
 
   if (isMysqlEnabled() && !useFallbackStore()) {
     const pool = getPool();
-    const [found] = await pool.query('SELECT id FROM projects WHERE id = ? LIMIT 1', [id]);
+    const [found] = await pool.query('SELECT id FROM projects WHERE id = ? LIMIT 1', [
+      id,
+    ]);
     if (!found.length) throw missingProject();
     const row = asProjectRow(project);
     await pool.query(
       'UPDATE projects SET title = ?, slug = ?, description = ?, image = ?, technologies = ?, project_url = ?, github_url = ?, is_published = ? WHERE id = ?',
-      [row.title, row.slug, row.description, row.image, row.technologies, row.project_url, row.github_url, row.is_published ? 1 : 0, id],
+      [
+        row.title,
+        row.slug,
+        row.description,
+        row.image,
+        row.technologies,
+        row.project_url,
+        row.github_url,
+        row.is_published ? 1 : 0,
+        id,
+      ],
     );
     return project;
   }
@@ -337,9 +435,14 @@ export async function deleteProject(id) {
 export async function setProjectPublished(id, published) {
   if (isMysqlEnabled() && !useFallbackStore()) {
     const pool = getPool();
-    const [result] = await pool.query('UPDATE projects SET is_published = ? WHERE id = ?', [published ? 1 : 0, id]);
+    const [result] = await pool.query(
+      'UPDATE projects SET is_published = ? WHERE id = ?',
+      [published ? 1 : 0, id],
+    );
     if (!result.affectedRows) {
-      const [found] = await pool.query('SELECT id FROM projects WHERE id = ? LIMIT 1', [id]);
+      const [found] = await pool.query('SELECT id FROM projects WHERE id = ? LIMIT 1', [
+        id,
+      ]);
       if (!found.length) throw missingProject();
     }
     return getProjectById(id);
@@ -354,16 +457,34 @@ export async function setProjectPublished(id, published) {
 }
 
 export async function saveAbout(content) {
-  const payload = { id: content.id || randomUUID(), title: content.title || 'About me', description: content.description || '', additionalDescription: content.additionalDescription || '', highlights: Array.isArray(content.highlights) ? content.highlights : [] };
+  const payload = {
+    id: content.id || randomUUID(),
+    title: content.title || 'About me',
+    description: content.description || '',
+    additionalDescription: content.additionalDescription || '',
+    highlights: Array.isArray(content.highlights) ? content.highlights : [],
+  };
 
   if (isMysqlEnabled() && !useFallbackStore()) {
     const pool = getPool();
     const row = asAboutRow(payload);
     const [existing] = await pool.query('SELECT id FROM about LIMIT 1');
     if (existing.length === 0) {
-      await pool.query('INSERT INTO about (id, title, description, additional_description, highlights) VALUES (?, ?, ?, ?, ?)', [row.id, row.title, row.description, row.additional_description, row.highlights]);
+      await pool.query(
+        'INSERT INTO about (id, title, description, additional_description, highlights) VALUES (?, ?, ?, ?, ?)',
+        [row.id, row.title, row.description, row.additional_description, row.highlights],
+      );
     } else {
-      await pool.query('UPDATE about SET title = ?, description = ?, additional_description = ?, highlights = ? WHERE id = ?', [row.title, row.description, row.additional_description, row.highlights, existing[0].id]);
+      await pool.query(
+        'UPDATE about SET title = ?, description = ?, additional_description = ?, highlights = ? WHERE id = ?',
+        [
+          row.title,
+          row.description,
+          row.additional_description,
+          row.highlights,
+          existing[0].id,
+        ],
+      );
     }
     return payload;
   }
@@ -382,7 +503,10 @@ export async function saveCollection(name, items) {
       await pool.query('DELETE FROM services');
       for (const item of items) {
         const row = asServiceRow(item);
-        await pool.query('INSERT INTO services (id, title, description, published) VALUES (?, ?, ?, ?)', [row.id, row.title, row.description, row.published ? 1 : 0]);
+        await pool.query(
+          'INSERT INTO services (id, title, description, published) VALUES (?, ?, ?, ?)',
+          [row.id, row.title, row.description, row.published ? 1 : 0],
+        );
       }
       return items;
     }
@@ -390,7 +514,10 @@ export async function saveCollection(name, items) {
       await pool.query('DELETE FROM stack');
       for (const item of items) {
         const row = asStackRow(item);
-        await pool.query('INSERT INTO stack (id, name, side, items) VALUES (?, ?, ?, ?)', [row.id, row.name, row.side, row.items]);
+        await pool.query(
+          'INSERT INTO stack (id, name, side, items) VALUES (?, ?, ?, ?)',
+          [row.id, row.name, row.side, row.items],
+        );
       }
       return items;
     }
@@ -398,7 +525,17 @@ export async function saveCollection(name, items) {
       await pool.query('DELETE FROM experience');
       for (const item of items) {
         const row = asExperienceRow(item);
-        await pool.query('INSERT INTO experience (id, when_text, title, org_name, note, published) VALUES (?, ?, ?, ?, ?, ?)', [row.id, row.when_text, row.title, row.org_name, row.note, row.published ? 1 : 0]);
+        await pool.query(
+          'INSERT INTO experience (id, when_text, title, org_name, note, published) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            row.id,
+            row.when_text,
+            row.title,
+            row.org_name,
+            row.note,
+            row.published ? 1 : 0,
+          ],
+        );
       }
       return items;
     }
@@ -406,7 +543,17 @@ export async function saveCollection(name, items) {
       await pool.query('DELETE FROM education');
       for (const item of items) {
         const row = asEducationRow(item);
-        await pool.query('INSERT INTO education (id, when_text, title, org_name, note, published) VALUES (?, ?, ?, ?, ?, ?)', [row.id, row.when_text, row.title, row.org_name, row.note, row.published ? 1 : 0]);
+        await pool.query(
+          'INSERT INTO education (id, when_text, title, org_name, note, published) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            row.id,
+            row.when_text,
+            row.title,
+            row.org_name,
+            row.note,
+            row.published ? 1 : 0,
+          ],
+        );
       }
       return items;
     }
@@ -414,7 +561,17 @@ export async function saveCollection(name, items) {
       await pool.query('DELETE FROM certifications');
       for (const item of items) {
         const row = asAchievementRow(item);
-        await pool.query('INSERT INTO certifications (id, title, issuer, earned_date, description, published) VALUES (?, ?, ?, ?, ?, ?)', [row.id, row.title, row.issuer, row.earned_date, row.description, row.published ? 1 : 0]);
+        await pool.query(
+          'INSERT INTO certifications (id, title, issuer, earned_date, description, published) VALUES (?, ?, ?, ?, ?, ?)',
+          [
+            row.id,
+            row.title,
+            row.issuer,
+            row.earned_date,
+            row.description,
+            row.published ? 1 : 0,
+          ],
+        );
       }
       return items;
     }
@@ -449,7 +606,15 @@ export async function addMessage(payload) {
     const pool = getPool();
     await pool.query(
       `INSERT INTO contact_messages (id, name, email, subject, message, is_read, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [message.id, message.name, message.email, message.subject, message.message, message.is_read ? 1 : 0, message.createdAt],
+      [
+        message.id,
+        message.name,
+        message.email,
+        message.subject,
+        message.message,
+        message.is_read ? 1 : 0,
+        message.createdAt,
+      ],
     );
     return message;
   }
@@ -464,7 +629,10 @@ export async function addMessage(payload) {
 export async function updateMessage(id, payload) {
   if (isMysqlEnabled() && !useFallbackStore()) {
     const pool = getPool();
-    await pool.query('UPDATE contact_messages SET is_read = ? WHERE id = ?', [payload.is_read ? 1 : 0, id]);
+    await pool.query('UPDATE contact_messages SET is_read = ? WHERE id = ?', [
+      payload.is_read ? 1 : 0,
+      id,
+    ]);
     return { ...payload, id };
   }
 
@@ -472,7 +640,11 @@ export async function updateMessage(id, payload) {
   snapshot.messages = snapshot.messages || [];
   const index = snapshot.messages.findIndex((item) => item.id === id);
   if (index < 0) throw new Error('Message not found.');
-  snapshot.messages[index] = { ...snapshot.messages[index], ...payload, is_read: !!payload.is_read };
+  snapshot.messages[index] = {
+    ...snapshot.messages[index],
+    ...payload,
+    is_read: !!payload.is_read,
+  };
   await writePortfolioStore(snapshot);
   return snapshot.messages[index];
 }
@@ -490,4 +662,49 @@ export async function deleteMessage(id) {
   if (snapshot.messages.length === before) throw new Error('Message not found.');
   await writePortfolioStore(snapshot);
   return true;
+}
+export async function getCvUrl() {
+  if (isMysqlEnabled() && !useFallbackStore()) {
+    const pool = getPool();
+
+    const [rows] = await pool.query(
+      'SELECT setting_value FROM site_settings WHERE setting_key = ? LIMIT 1',
+      ['cv_url'],
+    );
+
+    return rows.length ? String(rows[0].setting_value || '') : '';
+  }
+
+  const snapshot = await readPortfolioStore();
+
+  return String(snapshot.siteSettings?.cvUrl || '');
+}
+
+export async function saveCvUrl(cvUrl) {
+  const value = String(cvUrl || '').trim();
+
+  if (isMysqlEnabled() && !useFallbackStore()) {
+    const pool = getPool();
+
+    await pool.query(
+      `INSERT INTO site_settings (setting_key, setting_value)
+       VALUES (?, ?)
+       ON DUPLICATE KEY UPDATE
+       setting_value = VALUES(setting_value)`,
+      ['cv_url', value],
+    );
+
+    return value;
+  }
+
+  const snapshot = await readPortfolioStore();
+
+  snapshot.siteSettings = {
+    ...(snapshot.siteSettings || {}),
+    cvUrl: value,
+  };
+
+  await writePortfolioStore(snapshot);
+
+  return value;
 }

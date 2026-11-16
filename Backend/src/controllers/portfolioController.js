@@ -12,6 +12,8 @@ import {
   listContactMessages,
   markMessageAsRead,
   removeMessage,
+  getPublicCvUrl,
+  savePublicCvUrl,
 } from '../services/portfolioService.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -211,4 +213,53 @@ export async function uploadImageController(request, response) {
   await writeFile(join(uploadDir, filename), buffer);
 
   respond(response, 201, { url: `/uploads/${filename}` });
+}
+export async function uploadCvController(request, response) {
+  const body = request.body || {};
+  const dataUrl = String(body.data || '');
+
+  const match = /^data:application\/pdf;base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+
+  if (!match) {
+    return respond(response, 400, {
+      error: 'Upload a PDF CV only.',
+    });
+  }
+
+  const buffer = Buffer.from(match[1], 'base64');
+
+  if (!buffer.length || buffer.length > 10 * 1024 * 1024) {
+    return respond(response, 413, {
+      error: 'CV must be smaller than 10 MB.',
+    });
+  }
+
+  // Basic PDF signature validation.
+  const isPdf = buffer.length >= 4 && buffer.toString('ascii', 0, 4) === '%PDF';
+
+  if (!isPdf) {
+    return respond(response, 400, {
+      error: 'The file contents do not match a valid PDF.',
+    });
+  }
+
+  const { randomUUID } = await import('node:crypto');
+  const { mkdir, writeFile } = await import('node:fs/promises');
+
+  const filename = `${randomUUID()}.pdf`;
+
+  const uploadDir = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'uploads');
+
+  await mkdir(uploadDir, { recursive: true });
+
+  await writeFile(join(uploadDir, filename), buffer);
+
+  const cvUrl = `/uploads/${filename}`;
+
+  await savePublicCvUrl(cvUrl);
+
+  return respond(response, 201, {
+    ok: true,
+    url: cvUrl,
+  });
 }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { api } from '../lib/api.js';
 import { clearAdminToken, getAdminToken, saveAdminToken } from '../lib/adminAuth.js';
 import { ArrowIcon } from './Icons.jsx';
+import { url } from '../lib/utils.js';
 import AdminCollectionEditor from './AdminCollectionEditor.jsx';
 
 const emptyAbout = {
@@ -33,6 +34,9 @@ export default function Admin({ loginOnly = false }) {
   const [notice, setNotice] = useState('');
   const [busy, setBusy] = useState(false);
 
+  const [cvFile, setCvFile] = useState(null);
+  const [cvUrl, setCvUrl] = useState('');
+
   const refresh = async (authToken = token) => {
     const [
       projectList,
@@ -43,6 +47,7 @@ export default function Admin({ loginOnly = false }) {
       education,
       achievements,
       messageList,
+      portfolioData,
     ] = await Promise.all([
       api('/api/admin/projects', {}, authToken),
       api('/api/admin/about', {}, authToken),
@@ -52,6 +57,7 @@ export default function Admin({ loginOnly = false }) {
       api('/api/admin/education', {}, authToken),
       api('/api/admin/achievements', {}, authToken),
       api('/api/admin/messages', {}, authToken),
+      api('/api/portfolio'),
     ]);
 
     setProjects(Array.isArray(projectList) ? projectList : []);
@@ -73,6 +79,8 @@ export default function Admin({ loginOnly = false }) {
     });
 
     setMessages(Array.isArray(messageList) ? messageList : []);
+
+    setCvUrl(portfolioData?.site?.cvUrl || '');
   };
 
   useEffect(() => {
@@ -104,8 +112,6 @@ export default function Admin({ loginOnly = false }) {
     }, 0);
 
     return () => clearTimeout(timer);
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token, loginOnly]);
 
   const login = async (event) => {
@@ -199,6 +205,68 @@ export default function Admin({ loginOnly = false }) {
     }
   };
 
+  const uploadCv = async (event) => {
+    event.preventDefault();
+
+    if (!cvFile) {
+      setNotice('Please choose a PDF CV first.');
+      return;
+    }
+
+    if (cvFile.type !== 'application/pdf') {
+      setNotice('Please upload a PDF file only.');
+      return;
+    }
+
+    if (cvFile.size > 10 * 1024 * 1024) {
+      setNotice('CV must be smaller than 10 MB.');
+      return;
+    }
+
+    setBusy(true);
+    setNotice('');
+
+    try {
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+
+        reader.onload = () => resolve(reader.result);
+
+        reader.onerror = () => {
+          reject(new Error('Could not read the CV file.'));
+        };
+
+        reader.readAsDataURL(cvFile);
+      });
+
+      const result = await api(
+        '/api/admin/cv',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            data: dataUrl,
+          }),
+        },
+        token,
+      );
+
+      setCvUrl(result.url || '');
+      setCvFile(null);
+
+      const input = document.getElementById('admin-cv-file');
+
+      if (input) {
+        input.value = '';
+      }
+
+      setNotice('CV uploaded successfully.');
+    } catch (error) {
+      setNotice(error.message || 'Could not upload the CV.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const addHighlight = () => {
     setAbout((previous) => ({
       ...previous,
@@ -250,7 +318,6 @@ export default function Admin({ loginOnly = false }) {
       setNotice(`${key[0].toUpperCase()}${key.slice(1)} updated successfully.`);
     } catch (error) {
       setNotice(error.message || `Could not update ${key}.`);
-
       throw error;
     } finally {
       setBusy(false);
@@ -391,9 +458,7 @@ export default function Admin({ loginOnly = false }) {
       <section className="admin-metrics">
         <article className="rcard glass">
           <span>Total projects</span>
-
           <strong>{projects.length}</strong>
-
           <small>
             {publishedProjects.length} published · {draftProjects.length} drafts
           </small>
@@ -401,30 +466,23 @@ export default function Admin({ loginOnly = false }) {
 
         <article className="rcard glass">
           <span>Published projects</span>
-
           <strong>{publishedProjects.length}</strong>
-
           <small>Visible on the public portfolio</small>
         </article>
 
         <article className="rcard glass">
           <span>Messages</span>
-
           <strong>{messages.length}</strong>
-
           <small>{unreadMessages.length} unread</small>
         </article>
 
         <article className="rcard glass">
           <span>Certifications</span>
-
           <strong>{collections.achievements.length}</strong>
-
           <small>Saved certification records</small>
         </article>
       </section>
 
-      {/* PROJECTS */}
       <section className="rcard glass admin-content">
         <div className="admin-section-head">
           <div>
@@ -456,7 +514,6 @@ export default function Admin({ loginOnly = false }) {
         </div>
       </section>
 
-      {/* ABOUT */}
       <section className="rcard glass admin-content">
         <div className="admin-section-head">
           <div>
@@ -556,7 +613,62 @@ export default function Admin({ loginOnly = false }) {
         </form>
       </section>
 
-      {/* SERVICES */}
+      <section className="rcard glass admin-content">
+        <div className="admin-section-head">
+          <div>
+            <span className="chip">Resume</span>
+
+            <h2>CV / Resume</h2>
+
+            <p>Upload the CV visitors can open from the Download CV button.</p>
+          </div>
+        </div>
+
+        <form className="admin-form" onSubmit={uploadCv}>
+          <label>
+            CV PDF
+            <input
+              id="admin-cv-file"
+              type="file"
+              accept="application/pdf,.pdf"
+              onChange={(event) => {
+                setCvFile(event.target.files?.[0] || null);
+              }}
+            />
+          </label>
+
+          {cvFile ? (
+            <p>
+              Selected: <strong>{cvFile.name}</strong>
+            </p>
+          ) : null}
+
+          {cvUrl ? (
+            <div className="admin-project">
+              <div>
+                <b>Current CV uploaded</b>
+
+                <small>{cvUrl}</small>
+              </div>
+
+              <a
+                className="btn btn-out mini"
+                href={url(cvUrl)}
+                target="_blank"
+                rel="noopener noreferrer">
+                View CV
+              </a>
+            </div>
+          ) : (
+            <p>No CV uploaded yet.</p>
+          )}
+
+          <button className="btn btn-grad" type="submit" disabled={busy || !cvFile}>
+            {busy ? 'Uploading…' : 'Upload CV'} <ArrowIcon />
+          </button>
+        </form>
+      </section>
+
       <AdminCollectionEditor
         title="Services"
         description="Manage the services displayed on your public portfolio."
@@ -566,7 +678,6 @@ export default function Admin({ loginOnly = false }) {
         onSave={(items) => saveCollection('services', items)}
       />
 
-      {/* MESSAGES */}
       <section className="rcard glass admin-content">
         <div className="admin-section-head">
           <div>

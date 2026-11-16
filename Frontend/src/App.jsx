@@ -24,7 +24,6 @@ import AdminProjects from './components/AdminProjects.jsx';
 import PublicProjects from './components/PublicProjects.jsx';
 import { api } from './lib/api.js';
 
-/* id used in cfg.sections -> component */
 const SECTIONS = {
   work: Work,
   about: About,
@@ -43,10 +42,14 @@ const decodeSegment = (value) => {
 };
 
 export default function App() {
-  /* ----- settings (defaults + anything saved from the Customize panel) ----- */
-  const [cfg, setCfg] = useState(() => ({ ...loadConfig(DEFAULTS), projects: [] }));
+  const [cfg, setCfg] = useState(() => ({
+    ...loadConfig(DEFAULTS),
+    projects: [],
+  }));
+
   const [projectStatus, setProjectStatus] = useState('loading');
   const [projectError, setProjectError] = useState('');
+
   const commit = useCallback(
     (updater) =>
       setCfg((prev) => {
@@ -56,16 +59,17 @@ export default function App() {
       }),
     [],
   );
+
   const resetAll = useCallback(() => {
     try {
       localStorage.removeItem(STORE);
     } catch {
       /* ignore */
     }
+
     setCfg(clone(DEFAULTS));
   }, []);
 
-  /* ----- theme: a visitor's own choice wins over the default theme ----- */
   const [stored, setStored] = useState(() => {
     try {
       return localStorage.getItem('theme');
@@ -73,65 +77,94 @@ export default function App() {
       return null;
     }
   });
+
   const theme =
     stored === 'light' || stored === 'dark'
       ? stored
       : cfg.look.theme === 'light'
         ? 'light'
         : 'dark';
+
   const toggleTheme = () => {
     const next = theme === 'light' ? 'dark' : 'light';
+
     setStored(next);
+
     try {
       localStorage.setItem('theme', next);
     } catch {
       /* ignore */
     }
   };
+
   const clearStoredTheme = () => {
     try {
       localStorage.removeItem('theme');
     } catch {
       /* ignore */
     }
+
     setStored(null);
   };
 
-  /* custom gradient colours + theme attribute (layout effect so children read the right CSS variables) */
   useLayoutEffect(() => {
     const root = document.documentElement;
-    const L = cfg.look,
-      D = DEFAULTS.look;
-    ['--g1', '--g2', '--on-grad'].forEach((p) => root.style.removeProperty(p));
+    const L = cfg.look;
+    const D = DEFAULTS.look;
+
+    ['--g1', '--g2', '--on-grad'].forEach((property) => {
+      root.style.removeProperty(property);
+    });
+
     const c1 = String(L.g1).toLowerCase() !== D.g1;
     const c2 = String(L.g2).toLowerCase() !== D.g2;
-    if (c1) root.style.setProperty('--g1', L.g1);
-    if (c2) root.style.setProperty('--g2', L.g2);
-    if (c1 || c2)
+
+    if (c1) {
+      root.style.setProperty('--g1', L.g1);
+    }
+
+    if (c2) {
+      root.style.setProperty('--g2', L.g2);
+    }
+
+    if (c1 || c2) {
       root.style.setProperty(
         '--on-grad',
         (lum(L.g1) + lum(L.g2)) / 2 > 0.55 ? '#17131c' : '#ffffff',
       );
+    }
+
     root.setAttribute('data-theme', theme);
   }, [cfg.look, theme]);
 
   useEffect(() => {
-    document.title = cfg.site.name + ' | ' + cfg.site.role;
+    document.title = `${cfg.site.name} | ${cfg.site.role}`;
   }, [cfg.site.name, cfg.site.role]);
 
   useEffect(() => {
     api('/api/portfolio')
-      .then((content) =>
+      .then((content) => {
         setCfg((previous) => ({
           ...previous,
-          about: content.about,
-          services: content.services,
-          stack: content.stack,
-          experience: content.experience,
-          education: content.education,
-          achievements: content.achievements,
-        })),
-      )
+
+          site: {
+            ...previous.site,
+            ...(content.site || {}),
+          },
+
+          about: content.about || previous.about,
+
+          services: content.services || [],
+
+          stack: content.stack || [],
+
+          experience: content.experience || [],
+
+          education: content.education || [],
+
+          achievements: content.achievements || [],
+        }));
+      })
       .catch(() => {});
   }, []);
 
@@ -146,6 +179,7 @@ export default function App() {
 
       setCfg((previous) => ({
         ...previous,
+
         projects: projects.map((project) => ({
           ...project,
           title: project.title || 'Untitled project',
@@ -163,60 +197,94 @@ export default function App() {
       setProjectStatus('ready');
     } catch (error) {
       setProjectError(error.message || 'Could not load published projects.');
+
       setProjectStatus('error');
     }
   }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => loadProjects(), 0);
+    const timer = setTimeout(() => {
+      loadProjects();
+    }, 0);
+
     return () => clearTimeout(timer);
   }, [loadProjects]);
 
   useSpotlight();
 
-  /* jump to #section if the address has one */
   useEffect(() => {
-    const h = window.location.hash;
-    if (h && h !== '#edit') {
-      const t = document.getElementById(h.slice(1));
-      if (t) setTimeout(() => t.scrollIntoView(), 50);
+    const hash = window.location.hash;
+
+    if (hash && hash !== '#edit') {
+      const target = document.getElementById(hash.slice(1));
+
+      if (target) {
+        setTimeout(() => {
+          target.scrollIntoView();
+        }, 50);
+      }
     }
   }, []);
 
-  /* ----- toast ----- */
   const [toast, setToast] = useState('');
+
   useEffect(() => {
-    if (!toast) return undefined;
-    const t = setTimeout(() => setToast(''), 2400);
-    return () => clearTimeout(t);
+    if (!toast) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      setToast('');
+    }, 2400);
+
+    return () => clearTimeout(timer);
   }, [toast]);
 
-  /* ----- customize panel: ?edit, Ctrl/Cmd + Shift + E, or double-click the footer copyright ----- */
   const [editorReady, setEditorReady] = useState(EDIT);
   const [editorOpen, setEditorOpen] = useState(EDIT);
+
   const openEditor = useCallback(() => {
     setEditorReady(true);
     setEditorOpen(true);
   }, []);
+
   useEffect(() => {
-    const k = (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.shiftKey && (e.key === 'E' || e.key === 'e')) {
-        e.preventDefault();
+    const handleKeyDown = (event) => {
+      if (
+        (event.ctrlKey || event.metaKey) &&
+        event.shiftKey &&
+        (event.key === 'E' || event.key === 'e')
+      ) {
+        event.preventDefault();
         openEditor();
       }
     };
-    window.addEventListener('keydown', k);
-    return () => window.removeEventListener('keydown', k);
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
   }, [openEditor]);
 
-  const secs = cfg.sections.filter((s) => s.on && SECTIONS[s.id]);
+  const secs = cfg.sections.filter((section) => section.on && SECTIONS[section.id]);
 
   const pathname = window.location.pathname.replace(/\/$/, '') || '/';
-  if (pathname === '/admin/login') return <Admin loginOnly />;
-  if (pathname === '/admin/projects' || pathname.startsWith('/admin/projects/'))
+
+  if (pathname === '/admin/login') {
+    return <Admin loginOnly />;
+  }
+
+  if (pathname === '/admin/projects' || pathname.startsWith('/admin/projects/')) {
     return <AdminProjects />;
-  if (pathname.startsWith('/admin')) return <Admin />;
+  }
+
+  if (pathname.startsWith('/admin')) {
+    return <Admin />;
+  }
+
   const projectMatch = /^\/projects\/([^/]+)$/.exec(pathname);
+
   const isProjectPage = pathname === '/projects' || Boolean(projectMatch);
 
   return (
@@ -224,13 +292,17 @@ export default function App() {
       <a className="skip" href="#main">
         Skip to content
       </a>
+
       <Background
         particles={cfg.features.particles}
         aurora={cfg.features.aurora}
         theme={theme}
       />
+
       <Cursor enabled={cfg.features.cursor} />
+
       <Intro enabled={cfg.features.intro} word={cfg.site.introWord} />
+
       <ScrollUI progress={cfg.features.progress} toTop={cfg.features.toTop} />
 
       <div className="shell">
@@ -239,28 +311,40 @@ export default function App() {
           onToggleTheme={toggleTheme}
           basePath={isProjectPage ? '/#' : ''}
         />
+
         <main id="main">
           {isProjectPage ? (
             <PublicProjects slug={projectMatch ? decodeSegment(projectMatch[1]) : ''} />
           ) : (
             <>
               <Hero next={secs.length ? secs[0].id : ''} />
+
               {cfg.features.marquee && cfg.marquee.length ? (
                 <Marquee items={cfg.marquee} />
               ) : null}
-              {secs.map((s) => {
-                const Section = SECTIONS[s.id];
-                return s.id === 'work' ? (
+
+              {secs.map((sectionConfig) => {
+                const Section = SECTIONS[sectionConfig.id];
+
+                if (sectionConfig.id === 'work') {
+                  return (
+                    <Section
+                      key={sectionConfig.id}
+                      sec={sectionConfig}
+                      projectStatus={projectStatus}
+                      projectError={projectError}
+                      onRetry={loadProjects}
+                      onToast={setToast}
+                    />
+                  );
+                }
+
+                return (
                   <Section
-                    key={s.id}
-                    sec={s}
-                    projectStatus={projectStatus}
-                    projectError={projectError}
-                    onRetry={loadProjects}
+                    key={sectionConfig.id}
+                    sec={sectionConfig}
                     onToast={setToast}
                   />
-                ) : (
-                  <Section key={s.id} sec={s} onToast={setToast} />
                 );
               })}
             </>
@@ -269,6 +353,7 @@ export default function App() {
       </div>
 
       <Footer onSecret={openEditor} />
+
       <div id="toast" className={toast ? 'show' : ''} role="status" aria-live="polite">
         {toast}
       </div>

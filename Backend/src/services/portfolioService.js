@@ -1,15 +1,42 @@
-import { addMessage, addProject, deleteMessage, deleteProject, getAdminCollections, getMessages, getProjectById, getPublishedProjectBySlug, getPublicPortfolio, saveAbout, saveCollection, setProjectPublished, updateMessage, updateProject } from '../models/portfolioModel.js';
+import {
+  addMessage,
+  addProject,
+  deleteMessage,
+  deleteProject,
+  getAdminCollections,
+  getCvUrl,
+  getMessages,
+  getProjectById,
+  getPublishedProjectBySlug,
+  getPublicPortfolio,
+  saveAbout,
+  saveCollection,
+  saveCvUrl,
+  setProjectPublished,
+  updateMessage,
+  updateProject,
+} from '../models/portfolioModel.js';
 
 export async function getPortfolioPayload() {
   const data = await getPublicPortfolio();
+
   return {
+    site: {
+      ...(data.site || {}),
+      cvUrl: data.site?.cvUrl || '',
+    },
     projects: (data.projects || []).map((project) => ({
       ...project,
       tags: Array.isArray(project.tags) ? project.tags : [],
       demo: project.demo || project.project_url || '',
       code: project.code || project.github_url || '',
     })),
-    about: data.about || { title: 'About me', description: '', additionalDescription: '', highlights: [] },
+    about: data.about || {
+      title: 'About me',
+      description: '',
+      additionalDescription: '',
+      highlights: [],
+    },
     services: data.services || data.capabilities || [],
     stack: data.stack || [],
     experience: data.experience || [],
@@ -59,7 +86,9 @@ export async function registerContactMessage(payload) {
 }
 
 export async function markMessageAsRead(messageId, nextReadState) {
-  return updateMessage(messageId, { is_read: nextReadState });
+  return updateMessage(messageId, {
+    is_read: nextReadState,
+  });
 }
 
 export async function removeMessage(messageId) {
@@ -68,4 +97,12 @@ export async function removeMessage(messageId) {
 
 export async function listContactMessages() {
   return getMessages();
+}
+
+export async function getPublicCvUrl() {
+  return getCvUrl();
+}
+
+export async function savePublicCvUrl(cvUrl) {
+  return saveCvUrl(cvUrl);
 }

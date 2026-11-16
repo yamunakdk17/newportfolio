@@ -9,7 +9,6 @@ export const DEFAULTS = {
   site: {
     name: 'Yamuna Khadka',
     role: 'Full Stack Developer',
-    roles: ['Frontend Developer', 'Backend Developer', 'MERN Stack Developer'],
     available: '',
     chip: "Let's meet!",
     specialization: 'Full Stack Developer',
@@ -117,13 +116,7 @@ export const DEFAULTS = {
     {
       name: 'Frontend',
       side: 'front',
-      items: [
-        'React',
-        'React',
-        'JavaScript',
-        'HTML',
-        'CSS',
-      ],
+      items: ['React', 'React', 'JavaScript', 'HTML', 'CSS'],
     },
     {
       name: 'Backend',
@@ -155,11 +148,14 @@ export const DEFAULTS = {
       ],
     },
   ],
-  experience: [
-    { when: '2026 — Present', title: 'Intern', org: 'Smart GK', note: '' },
-  ],
+  experience: [{ when: '2026 — Present', title: 'Intern', org: 'Smart GK', note: '' }],
   education: [
-    { when: '2026 — Present', title: 'BSc CSIT', org: 'KFA College', note: 'Expected completion: 2029' },
+    {
+      when: '2026 — Present',
+      title: 'BSc CSIT',
+      org: 'KFA College',
+      note: 'Expected completion: 2029',
+    },
   ],
   achievements: [],
   /* Loksewa Abhyas is your real project. The other three are samples to replace.
