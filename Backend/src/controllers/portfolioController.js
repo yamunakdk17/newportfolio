@@ -1,4 +1,18 @@
-import { getPortfolioPayload, getAdminPayload, createProject, replaceProject, removeProject, getPublishedProject, changeProjectPublished, updateContent, saveAboutContent, registerContactMessage, listContactMessages, markMessageAsRead, removeMessage } from '../services/portfolioService.js';
+import {
+  getPortfolioPayload,
+  getAdminPayload,
+  createProject,
+  replaceProject,
+  removeProject,
+  getPublishedProject,
+  changeProjectPublished,
+  updateContent,
+  saveAboutContent,
+  registerContactMessage,
+  listContactMessages,
+  markMessageAsRead,
+  removeMessage,
+} from '../services/portfolioService.js';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isMysqlEnabled, useFallbackStore } from '../config/database.js';
@@ -28,7 +42,11 @@ export async function getPublicCollectionController(request, response) {
     '/education': payload.education,
     '/certifications': payload.achievements,
   };
-  respond(response, 200, Object.prototype.hasOwnProperty.call(map, request.path) ? map[request.path] : payload);
+  respond(
+    response,
+    200,
+    Object.prototype.hasOwnProperty.call(map, request.path) ? map[request.path] : payload,
+  );
 }
 
 export async function getPublicProjectController(request, response) {
@@ -44,19 +62,44 @@ export async function submitContactController(request, response) {
   const subject = String(body.subject || '').trim();
   const message = String(body.message || '').trim();
 
-  if (name.length < 2 || name.length > 120 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || subject.length < 2 || subject.length > 180 || message.length < 5 || message.length > 5000) {
-    return respond(response, 400, { error: 'Enter a valid name, email, subject, and message.' });
+  if (
+    name.length < 2 ||
+    name.length > 120 ||
+    !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+    subject.length < 2 ||
+    subject.length > 180 ||
+    message.length < 5 ||
+    message.length > 5000
+  ) {
+    return respond(response, 400, {
+      error: 'Enter a valid name, email, subject, and message.',
+    });
   }
 
-  const saved = await registerContactMessage({ name, email, subject, message, createdAt: new Date().toISOString() });
+  const saved = await registerContactMessage({
+    name,
+    email,
+    subject,
+    message,
+    createdAt: new Date().toISOString(),
+  });
   try {
     const sent = await sendContactNotification(saved);
-    if (!sent) return respond(response, 503, { error: 'Message saved, but email delivery is not configured.' });
+    if (!sent)
+      return respond(response, 503, {
+        error: 'Message saved, but email delivery is not configured.',
+      });
   } catch (error) {
     console.error(error);
-    return respond(response, 502, { error: 'Message saved, but email delivery failed. Please try again later.' });
+    return respond(response, 502, {
+      error: 'Message saved, but email delivery failed. Please try again later.',
+    });
   }
-  respond(response, 201, { ok: true, message: 'Thanks for reaching out. Your message has been sent successfully.', saved });
+  respond(response, 201, {
+    ok: true,
+    message: 'Thanks for reaching out. Your message has been sent successfully.',
+    saved,
+  });
 }
 
 export async function getAdminProjectsController(_request, response) {
@@ -97,7 +140,8 @@ export async function publishProjectController(request, response) {
 export async function saveAdminCollectionController(request, response) {
   const collection = request.params.collection;
   const body = request.body || {};
-  const payload = collection === 'about' ? body[collection] || body : body[collection] || body;
+  const payload =
+    collection === 'about' ? body[collection] || body : body[collection] || body;
   if (collection === 'about') {
     const result = await saveAboutContent(payload);
     return respond(response, 200, result);
@@ -127,23 +171,37 @@ export async function deleteMessageController(request, response) {
 export async function uploadImageController(request, response) {
   const body = request.body || {};
   const dataUrl = String(body.data || '');
-  const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(dataUrl);
+  const match = /^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/.exec(
+    dataUrl,
+  );
   if (!match) {
     return respond(response, 400, { error: 'Upload JPG, PNG, or WEBP images only.' });
   }
 
   const mime = match[1];
-  const extension = mime.includes('png') ? '.png' : mime.includes('webp') ? '.webp' : '.jpg';
+  const extension = mime.includes('png')
+    ? '.png'
+    : mime.includes('webp')
+      ? '.webp'
+      : '.jpg';
   const buffer = Buffer.from(match[2], 'base64');
   if (!buffer.length || buffer.length > 8 * 1024 * 1024) {
     return respond(response, 413, { error: 'Image must be smaller than 8 MB.' });
   }
-  const validSignature = mime === 'image/jpeg'
-    ? buffer.length > 2 && buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff
-    : mime === 'image/png'
-      ? buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
-      : buffer.toString('ascii', 0, 4) === 'RIFF' && buffer.toString('ascii', 8, 12) === 'WEBP';
-  if (!validSignature) return respond(response, 400, { error: 'The file contents do not match a supported image format.' });
+  const validSignature =
+    mime === 'image/jpeg'
+      ? buffer.length > 2 &&
+        buffer[0] === 0xff &&
+        buffer[1] === 0xd8 &&
+        buffer[2] === 0xff
+      : mime === 'image/png'
+        ? buffer.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+        : buffer.toString('ascii', 0, 4) === 'RIFF' &&
+          buffer.toString('ascii', 8, 12) === 'WEBP';
+  if (!validSignature)
+    return respond(response, 400, {
+      error: 'The file contents do not match a supported image format.',
+    });
 
   const { randomUUID } = await import('node:crypto');
   const filename = `${randomUUID()}${extension}`;

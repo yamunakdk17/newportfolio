@@ -30,6 +30,7 @@ For local development without MySQL only, clear all `DB_*` values in `.env`, kee
 
 ## Project API
 
+- `GET /api/admin/` — redirects browser visits to the frontend admin sign-in page
 - `GET /api/projects` — published projects
 - `GET /api/projects/:slug` — one published project
 - `GET /api/admin/projects` — all projects (admin token required)

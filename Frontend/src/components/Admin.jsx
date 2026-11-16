@@ -1,117 +1,627 @@
-import { useEffect, useState } from "react";
-import { api, apiUrl } from "../lib/api.js";
-import { clearAdminToken, getAdminToken, saveAdminToken } from "../lib/adminAuth.js";
-import { ArrowIcon } from "./Icons.jsx";
+import { useEffect, useMemo, useState } from 'react';
+import { api } from '../lib/api.js';
+import { clearAdminToken, getAdminToken, saveAdminToken } from '../lib/adminAuth.js';
+import { ArrowIcon } from './Icons.jsx';
+import AdminCollectionEditor from './AdminCollectionEditor.jsx';
 
-const empty = { title: "", desc: "", tags: [], demo: "", code: "", image: "", published: false };
-const managed = ["about", "services", "stack", "experience", "education", "achievements"];
+const emptyAbout = {
+  title: '',
+  description: '',
+  additionalDescription: '',
+  highlights: [],
+};
 
 export default function Admin({ loginOnly = false }) {
   const [token, setToken] = useState(() => getAdminToken());
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
   const [projects, setProjects] = useState([]);
-  const [form, setForm] = useState(empty);
-  const [editId, setEditId] = useState("");
-  const [notice, setNotice] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [content, setContent] = useState({});
   const [messages, setMessages] = useState([]);
 
-  const refresh = async (auth = token) => {
-    const [projectList, ...records] = await Promise.all([api("/api/admin/projects", {}, auth), ...managed.map((key) => api(`/api/admin/${key}`, {}, auth)), api("/api/admin/messages", {}, auth)]);
-    setProjects(projectList); setContent(Object.fromEntries(managed.map((key, index) => [key, JSON.stringify(records[index], null, 2)]))); setMessages(records.at(-1));
+  const [about, setAbout] = useState(emptyAbout);
+
+  const [collections, setCollections] = useState({
+    services: [],
+    stack: [],
+    experience: [],
+    education: [],
+    achievements: [],
+  });
+
+  const [notice, setNotice] = useState('');
+  const [busy, setBusy] = useState(false);
+
+  const refresh = async (authToken = token) => {
+    const [
+      projectList,
+      aboutData,
+      services,
+      stack,
+      experience,
+      education,
+      achievements,
+      messageList,
+    ] = await Promise.all([
+      api('/api/admin/projects', {}, authToken),
+      api('/api/admin/about', {}, authToken),
+      api('/api/admin/services', {}, authToken),
+      api('/api/admin/stack', {}, authToken),
+      api('/api/admin/experience', {}, authToken),
+      api('/api/admin/education', {}, authToken),
+      api('/api/admin/achievements', {}, authToken),
+      api('/api/admin/messages', {}, authToken),
+    ]);
+
+    setProjects(Array.isArray(projectList) ? projectList : []);
+
+    setAbout({
+      title: aboutData?.title || '',
+      description: aboutData?.description || '',
+      additionalDescription:
+        aboutData?.additionalDescription || aboutData?.additional_description || '',
+      highlights: Array.isArray(aboutData?.highlights) ? aboutData.highlights : [],
+    });
+
+    setCollections({
+      services: Array.isArray(services) ? services : [],
+      stack: Array.isArray(stack) ? stack : [],
+      experience: Array.isArray(experience) ? experience : [],
+      education: Array.isArray(education) ? education : [],
+      achievements: Array.isArray(achievements) ? achievements : [],
+    });
+
+    setMessages(Array.isArray(messageList) ? messageList : []);
   };
+
   useEffect(() => {
     if (loginOnly && token) {
-      window.location.replace("/admin/projects");
+      window.location.replace('/admin/projects');
       return undefined;
     }
-    if (!loginOnly && !token && window.location.pathname !== "/admin/login") {
-      window.location.replace("/admin/login");
+
+    if (!loginOnly && !token && window.location.pathname !== '/admin/login') {
+      window.location.replace('/admin/login');
       return undefined;
     }
-    if (!token) return undefined;
-    const timer = setTimeout(() => refresh().catch((error) => {
-      setNotice(error.message || "Could not load admin data.");
-      setToken("");
-      clearAdminToken();
-      window.location.replace("/admin/login");
-    }), 0);
+
+    if (!token) {
+      return undefined;
+    }
+
+    const timer = setTimeout(() => {
+      refresh().catch((error) => {
+        if (error.status === 401) {
+          clearAdminToken();
+          setToken('');
+          window.location.replace('/admin/login');
+          return;
+        }
+
+        setNotice(error.message || 'Could not load admin dashboard.');
+      });
+    }, 0);
+
     return () => clearTimeout(timer);
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [token]);
-  const field = (key) => (event) => setForm((value) => ({ ...value, [key]: event.target.value }));
+  }, [token, loginOnly]);
 
   const login = async (event) => {
-    event.preventDefault(); setBusy(true); setNotice("");
-    try {
-      const result = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
-      saveAdminToken(result.token);
-      setToken(result.token);
-      setPassword("");
-      window.location.replace("/admin/projects");
-    }
-    catch (error) { setNotice(error.message); }
-    finally { setBusy(false); }
-  };
-  const logout = async () => { await api("/api/auth/logout", { method: "POST" }, token).catch(() => {}); clearAdminToken(); setToken(""); window.location.replace("/admin/login"); };
-  const image = async (event) => {
-    const file = event.target.files?.[0]; if (!file) return;
-    if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 8 * 1024 * 1024) { setNotice("Choose a JPG, PNG, or WEBP image under 8 MB."); return; }
+    event.preventDefault();
+
     setBusy(true);
+    setNotice('');
+
     try {
-      const data = await new Promise((resolve, reject) => { const reader = new FileReader(); reader.onload = () => resolve(reader.result); reader.onerror = reject; reader.readAsDataURL(file); });
-      const result = await api("/api/admin/uploads", { method: "POST", body: JSON.stringify({ data }) }, token);
-      setForm((value) => ({ ...value, image: result.url })); setNotice("Image uploaded.");
-    } catch (error) { setNotice(error.message); }
-    finally { setBusy(false); event.target.value = ""; }
-  };
-  const save = async (event) => {
-    event.preventDefault(); setBusy(true); setNotice("");
-    const payload = { ...form, tags: String(form.tags).split(",").map((tag) => tag.trim()).filter(Boolean) };
-    try {
-      await api(editId ? `/api/admin/projects/${editId}` : "/api/admin/projects", { method: editId ? "PUT" : "POST", body: JSON.stringify(payload) }, token);
-      setForm(empty); setEditId(""); await refresh(); setNotice("Project saved.");
-    } catch (error) { setNotice(error.message); }
-    finally { setBusy(false); }
-  };
-  const edit = (project) => { setEditId(project.id); setForm({ ...empty, ...project, tags: (project.tags || []).join(", ") }); window.scrollTo({ top: 0, behavior: "smooth" }); };
-  const remove = async (id) => { if (!window.confirm("Delete this project?")) return; try { await api(`/api/admin/projects/${id}`, { method: "DELETE" }, token); await refresh(); } catch (error) { setNotice(error.message); } };
-  const saveContent = async (key) => {
-    try { const data = JSON.parse(content[key]); if (key === "about" ? !data || Array.isArray(data) || typeof data !== "object" : !Array.isArray(data)) throw new Error(key === "about" ? "Use a JSON object." : "Use a JSON array."); await api(`/api/admin/${key}`, { method: "PUT", body: JSON.stringify({ [key]: data }) }, token); setContent((prev) => ({ ...prev, [key]: JSON.stringify(data, null, 2) })); setNotice(`${key} updated.`); }
-    catch (error) { setNotice(error.message); }
-  };
-  const messageAction = async (message, removeMessage = false) => {
-    try { await api(`/api/admin/messages/${message.id}`, removeMessage ? { method: "DELETE" } : { method: "PUT", body: JSON.stringify({ ...message, is_read: !message.is_read }) }, token); await refresh(); }
-    catch (error) { setNotice(error.message); }
+      const result = await api('/api/auth/login', {
+        method: 'POST',
+        body: JSON.stringify({
+          email,
+          password,
+        }),
+      });
+
+      if (!result?.token) {
+        throw new Error('The server did not return an admin token.');
+      }
+
+      saveAdminToken(result.token);
+
+      setToken(result.token);
+      setPassword('');
+
+      window.location.replace('/admin');
+    } catch (error) {
+      setNotice(error.message || 'Unable to sign in.');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  return <main className="admin-page">
-    <a className="btn btn-text" href="/">← Back to portfolio</a>
-    <h1 className="grad">Portfolio admin</h1>
-    {token ? <>
-      <button className="btn btn-out" onClick={logout}>Sign out</button>
-      <a className="btn btn-grad" href="/admin/projects">Manage projects <ArrowIcon /></a>
-      <section className="rcard glass admin-metrics"><h2>Dashboard</h2><p>{projects.length} projects · {projects.filter((item) => item.published).length} published · {JSON.parse(content.achievements || "[]").length} certifications · {messages.length} messages · {messages.filter((item) => !item.is_read).length} unread</p></section>
-      <section className="rcard glass admin-form"><h2>{editId ? "Edit project" : "Add a project"}</h2>
-        <form onSubmit={save}>
-          <label>Title<input required value={form.title} onChange={field("title")} /></label>
-          <label>Description<textarea required value={form.desc} onChange={field("desc")} /></label>
-          <label>Technologies (comma separated)<input value={form.tags} onChange={field("tags")} /></label>
-          <label>Project URL<input type="url" value={form.demo} onChange={field("demo")} /></label>
-          <label>GitHub URL<input type="url" value={form.code} onChange={field("code")} /></label>
-          <label>Project image<input type="file" accept="image/jpeg,image/png,image/webp" onChange={image} /></label>
-          {form.image ? <div className="admin-preview"><img src={apiUrl(form.image)} alt="Project preview" /><button type="button" className="btn btn-text" onClick={() => setForm((value) => ({ ...value, image: "" }))}>Remove image</button></div> : null}
-          <label className="tgl"><input type="checkbox" checked={!!form.published} onChange={(event) => setForm((value) => ({ ...value, published: event.target.checked }))} /> Published</label>
-          <button className="btn btn-grad" disabled={busy}>{busy ? "Saving…" : editId ? "Save changes" : "Add project"} <ArrowIcon /></button>
-          {editId ? <button type="button" className="btn btn-out" onClick={() => { setForm(empty); setEditId(""); }}>Cancel</button> : null}
+  const logout = async () => {
+    await api(
+      '/api/auth/logout',
+      {
+        method: 'POST',
+      },
+      token,
+    ).catch(() => {});
+
+    clearAdminToken();
+    setToken('');
+
+    window.location.replace('/admin/login');
+  };
+
+  const saveAbout = async (event) => {
+    event.preventDefault();
+
+    setBusy(true);
+    setNotice('');
+
+    try {
+      const payload = {
+        ...about,
+        title: about.title.trim(),
+        description: about.description.trim(),
+        additionalDescription: about.additionalDescription.trim(),
+        highlights: about.highlights.map((item) => String(item).trim()).filter(Boolean),
+      };
+
+      if (!payload.title) {
+        throw new Error('About title is required.');
+      }
+
+      if (!payload.description) {
+        throw new Error('About description is required.');
+      }
+
+      await api(
+        '/api/admin/about',
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            about: payload,
+          }),
+        },
+        token,
+      );
+
+      setAbout(payload);
+
+      setNotice('About section updated successfully.');
+    } catch (error) {
+      setNotice(error.message || 'Could not update the About section.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const addHighlight = () => {
+    setAbout((previous) => ({
+      ...previous,
+      highlights: [...previous.highlights, ''],
+    }));
+  };
+
+  const updateHighlight = (index, value) => {
+    setAbout((previous) => ({
+      ...previous,
+      highlights: previous.highlights.map((item, itemIndex) =>
+        itemIndex === index ? value : item,
+      ),
+    }));
+  };
+
+  const removeHighlight = (index) => {
+    setAbout((previous) => ({
+      ...previous,
+      highlights: previous.highlights.filter((_, itemIndex) => itemIndex !== index),
+    }));
+  };
+
+  const saveCollection = async (key, items = collections[key]) => {
+    setBusy(true);
+    setNotice('');
+
+    try {
+      if (!Array.isArray(items)) {
+        throw new Error(`${key} must contain a list of items.`);
+      }
+
+      await api(
+        `/api/admin/${key}`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            [key]: items,
+          }),
+        },
+        token,
+      );
+
+      setCollections((previous) => ({
+        ...previous,
+        [key]: items,
+      }));
+
+      setNotice(`${key[0].toUpperCase()}${key.slice(1)} updated successfully.`);
+    } catch (error) {
+      setNotice(error.message || `Could not update ${key}.`);
+
+      throw error;
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const messageAction = async (message, remove = false) => {
+    setBusy(true);
+    setNotice('');
+
+    try {
+      if (remove) {
+        await api(
+          `/api/admin/messages/${message.id}`,
+          {
+            method: 'DELETE',
+          },
+          token,
+        );
+      } else {
+        await api(
+          `/api/admin/messages/${message.id}`,
+          {
+            method: 'PUT',
+            body: JSON.stringify({
+              is_read: !message.is_read,
+            }),
+          },
+          token,
+        );
+      }
+
+      await refresh();
+
+      setNotice(
+        remove
+          ? 'Message deleted.'
+          : message.is_read
+            ? 'Message marked unread.'
+            : 'Message marked read.',
+      );
+    } catch (error) {
+      setNotice(error.message || 'Could not update the message.');
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const publishedProjects = useMemo(
+    () => projects.filter((project) => project.published === true),
+    [projects],
+  );
+
+  const draftProjects = useMemo(
+    () => projects.filter((project) => project.published !== true),
+    [projects],
+  );
+
+  const unreadMessages = useMemo(
+    () => messages.filter((message) => !message.is_read),
+    [messages],
+  );
+
+  if (!token) {
+    return (
+      <main className="admin-page">
+        <a className="btn btn-text" href="/">
+          ← Back to portfolio
+        </a>
+
+        <h1 className="grad">Portfolio admin</h1>
+
+        <form className="rcard glass admin-form" onSubmit={login}>
+          <h2>Sign in</h2>
+
+          <label>
+            Admin email
+            <input
+              type="email"
+              autoComplete="username"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+
+          <label>
+            Password
+            <input
+              type="password"
+              autoComplete="current-password"
+              required
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+
+          <button className="btn btn-grad" disabled={busy}>
+            {busy ? 'Signing in…' : 'Sign in'}
+          </button>
+        </form>
+
+        {notice ? (
+          <p role="status" aria-live="polite">
+            {notice}
+          </p>
+        ) : null}
+      </main>
+    );
+  }
+
+  return (
+    <main className="admin-page">
+      <a className="btn btn-text" href="/">
+        ← Back to portfolio
+      </a>
+
+      <div className="admin-header">
+        <div>
+          <span className="chip">Admin</span>
+
+          <h1 className="grad">Portfolio dashboard</h1>
+
+          <p>Manage your portfolio content, projects, and messages.</p>
+        </div>
+
+        <div className="admin-actions">
+          <a className="btn btn-grad" href="/admin/projects">
+            Manage projects <ArrowIcon />
+          </a>
+
+          <button className="btn btn-out" type="button" onClick={logout}>
+            Sign out
+          </button>
+        </div>
+      </div>
+
+      <section className="admin-metrics">
+        <article className="rcard glass">
+          <span>Total projects</span>
+
+          <strong>{projects.length}</strong>
+
+          <small>
+            {publishedProjects.length} published · {draftProjects.length} drafts
+          </small>
+        </article>
+
+        <article className="rcard glass">
+          <span>Published projects</span>
+
+          <strong>{publishedProjects.length}</strong>
+
+          <small>Visible on the public portfolio</small>
+        </article>
+
+        <article className="rcard glass">
+          <span>Messages</span>
+
+          <strong>{messages.length}</strong>
+
+          <small>{unreadMessages.length} unread</small>
+        </article>
+
+        <article className="rcard glass">
+          <span>Certifications</span>
+
+          <strong>{collections.achievements.length}</strong>
+
+          <small>Saved certification records</small>
+        </article>
+      </section>
+
+      {/* PROJECTS */}
+      <section className="rcard glass admin-content">
+        <div className="admin-section-head">
+          <div>
+            <span className="chip">Projects</span>
+
+            <h2>Project management</h2>
+
+            <p>Create, edit, publish, or remove portfolio projects.</p>
+          </div>
+
+          <a className="btn btn-grad" href="/admin/projects">
+            Open projects <ArrowIcon />
+          </a>
+        </div>
+
+        <div className="admin-project">
+          <div>
+            <b>{publishedProjects.length} published</b>
+
+            <small>
+              {draftProjects.length} draft
+              {draftProjects.length === 1 ? '' : 's'}
+            </small>
+          </div>
+
+          <a className="btn btn-out mini" href="/admin/projects">
+            Manage
+          </a>
+        </div>
+      </section>
+
+      {/* ABOUT */}
+      <section className="rcard glass admin-content">
+        <div className="admin-section-head">
+          <div>
+            <span className="chip">Content</span>
+
+            <h2>About</h2>
+
+            <p>Update the introduction displayed in your public portfolio.</p>
+          </div>
+        </div>
+
+        <form className="admin-form" onSubmit={saveAbout}>
+          <label>
+            Title
+            <input
+              value={about.title}
+              onChange={(event) =>
+                setAbout((previous) => ({
+                  ...previous,
+                  title: event.target.value,
+                }))
+              }
+              placeholder="About me"
+              required
+            />
+          </label>
+
+          <label>
+            Description
+            <textarea
+              value={about.description}
+              onChange={(event) =>
+                setAbout((previous) => ({
+                  ...previous,
+                  description: event.target.value,
+                }))
+              }
+              placeholder="Write your main introduction..."
+              rows={6}
+              required
+            />
+          </label>
+
+          <label>
+            Additional description
+            <textarea
+              value={about.additionalDescription}
+              onChange={(event) =>
+                setAbout((previous) => ({
+                  ...previous,
+                  additionalDescription: event.target.value,
+                }))
+              }
+              placeholder="Add additional information..."
+              rows={5}
+            />
+          </label>
+
+          <div className="admin-form-group">
+            <div className="admin-section-head">
+              <div>
+                <h3>Highlights</h3>
+
+                <p>Short points that appear in your About section.</p>
+              </div>
+
+              <button type="button" className="btn btn-out mini" onClick={addHighlight}>
+                + Add highlight
+              </button>
+            </div>
+
+            {about.highlights.length ? (
+              about.highlights.map((highlight, index) => (
+                <div className="admin-inline-field" key={`highlight-${index}`}>
+                  <input
+                    value={highlight}
+                    onChange={(event) => updateHighlight(index, event.target.value)}
+                    placeholder="Example: Full-stack web development"
+                  />
+
+                  <button
+                    type="button"
+                    className="btn btn-out mini"
+                    onClick={() => removeHighlight(index)}>
+                    Remove
+                  </button>
+                </div>
+              ))
+            ) : (
+              <p>No highlights added yet.</p>
+            )}
+          </div>
+
+          <button className="btn btn-grad" type="submit" disabled={busy}>
+            {busy ? 'Saving…' : 'Save About'} <ArrowIcon />
+          </button>
         </form>
       </section>
-      <section className="rcard glass"><h2>Projects</h2>{projects.length ? projects.map((project) => <article className="admin-project" key={project.id}><div><b>{project.title}</b><small>{project.published ? "Published" : "Draft"}</small></div><button className="btn btn-out mini" onClick={() => edit(project)}>Edit</button><button className="btn btn-out mini" onClick={() => remove(project.id)}>Delete</button></article>) : <p>No projects yet.</p>}</section>
-      {managed.map((key) => <section className="rcard glass admin-content" key={key}><details><summary><h2>{key === "achievements" ? "Certifications" : key[0].toUpperCase() + key.slice(1)}</h2></summary><p>{key === "about" ? 'Edit title, description, additionalDescription, and highlights.' : 'Edit the saved content as JSON. Set published to false to keep an item private.'}</p><textarea aria-label={`${key} data as JSON`} spellCheck={false} value={content[key] || (key === "about" ? "{}" : "[]")} onChange={(event) => setContent((prev) => ({ ...prev, [key]: event.target.value }))} /><button className="btn btn-grad" onClick={() => saveContent(key)}>Save {key}</button></details></section>)}
-      <section className="rcard glass"><h2>Messages</h2>{messages.length ? messages.map((message) => <article className="admin-message" key={message.id}><b>{message.subject}</b><p>{message.name} · <a href={`mailto:${message.email}`}>{message.email}</a></p><p>{message.message}</p><small>{new Date(message.createdAt).toLocaleString()}</small><div className="secrow"><button className="btn btn-out mini" onClick={() => messageAction(message)}>{message.is_read ? "Mark unread" : "Mark read"}</button><button className="btn btn-out mini" onClick={() => messageAction(message, true)}>Delete</button></div></article>) : <p>No messages yet.</p>}</section>
-    </> : <form className="rcard glass admin-form" onSubmit={login}><h2>Sign in</h2><label>Admin email<input type="email" autoComplete="username" required value={email} onChange={(event) => setEmail(event.target.value)} /></label><label>Password<input type="password" autoComplete="current-password" required value={password} onChange={(event) => setPassword(event.target.value)} /></label><button className="btn btn-grad" disabled={busy}>Sign in</button></form>}
-    <p role="status" aria-live="polite">{notice}</p>
-  </main>;
+
+      {/* SERVICES */}
+      <AdminCollectionEditor
+        title="Services"
+        description="Manage the services displayed on your public portfolio."
+        type="services"
+        items={collections.services}
+        busy={busy}
+        onSave={(items) => saveCollection('services', items)}
+      />
+
+      {/* MESSAGES */}
+      <section className="rcard glass admin-content">
+        <div className="admin-section-head">
+          <div>
+            <span className="chip">Inbox</span>
+
+            <h2>Messages</h2>
+
+            <p>Messages submitted through your public contact form.</p>
+          </div>
+
+          <strong>{unreadMessages.length} unread</strong>
+        </div>
+
+        {messages.length ? (
+          messages.map((message) => (
+            <article className="admin-message" key={message.id}>
+              <b>{message.subject}</b>
+
+              <p>
+                {message.name} · <a href={`mailto:${message.email}`}>{message.email}</a>
+              </p>
+
+              <p>{message.message}</p>
+
+              <small>{new Date(message.createdAt).toLocaleString()}</small>
+
+              <div className="secrow">
+                <button
+                  className="btn btn-out mini"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => messageAction(message)}>
+                  {message.is_read ? 'Mark unread' : 'Mark read'}
+                </button>
+
+                <button
+                  className="btn btn-out mini"
+                  type="button"
+                  disabled={busy}
+                  onClick={() => messageAction(message, true)}>
+                  Delete
+                </button>
+              </div>
+            </article>
+          ))
+        ) : (
+          <p>No messages yet.</p>
+        )}
+      </section>
+
+      {notice ? (
+        <p role="status" aria-live="polite">
+          {notice}
+        </p>
+      ) : null}
+    </main>
+  );
 }
