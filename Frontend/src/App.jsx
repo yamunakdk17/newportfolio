@@ -27,6 +27,8 @@ import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
 import Editor from "./components/Editor.jsx";
 import Admin from "./components/Admin.jsx";
+import AdminProjects from "./components/AdminProjects.jsx";
+import PublicProjects from "./components/PublicProjects.jsx";
 import { api } from "./lib/api.js";
 
 /* id used in cfg.sections -> component */
@@ -39,9 +41,19 @@ const SECTIONS = {
   contact: Contact,
 };
 
+const decodeSegment = (value) => {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+};
+
 export default function App() {
   /* ----- settings (defaults + anything saved from the Customize panel) ----- */
-  const [cfg, setCfg] = useState(() => loadConfig(DEFAULTS));
+  const [cfg, setCfg] = useState(() => ({ ...loadConfig(DEFAULTS), projects: [] }));
+  const [projectStatus, setProjectStatus] = useState("loading");
+  const [projectError, setProjectError] = useState("");
   const commit = useCallback(
     (updater) =>
       setCfg((prev) => {
@@ -117,7 +129,6 @@ export default function App() {
   useEffect(() => {
     api("/api/portfolio").then((content) => setCfg((previous) => ({
       ...previous,
-      projects: content.projects.map((project) => ({ ...project, cat: project.cat || "Project", kind: project.kind || "", tags: project.tags || [], demo: project.demo || "", code: project.code || "" })),
       about: content.about,
       services: content.services,
       stack: content.stack,
@@ -126,6 +137,34 @@ export default function App() {
       achievements: content.achievements,
     }))).catch(() => {});
   }, []);
+
+  const loadProjects = useCallback(async () => {
+    setProjectStatus("loading");
+    setProjectError("");
+    try {
+      const projects = await api("/api/projects");
+      setCfg((previous) => ({
+        ...previous,
+        projects: (Array.isArray(projects) ? projects : []).map((project) => ({
+          ...project,
+          cat: project.cat || "Project",
+          kind: project.kind || "",
+          tags: Array.isArray(project.tags) ? project.tags : [],
+          demo: project.demo || project.project_url || "",
+          code: project.code || project.github_url || "",
+        })),
+      }));
+      setProjectStatus("ready");
+    } catch (error) {
+      setProjectError(error.message || "Could not load published projects.");
+      setProjectStatus("error");
+    }
+  }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => loadProjects(), 0);
+    return () => clearTimeout(timer);
+  }, [loadProjects]);
 
   useSpotlight();
 
@@ -170,7 +209,12 @@ export default function App() {
 
   const secs = cfg.sections.filter((s) => s.on && SECTIONS[s.id]);
 
-  if (window.location.pathname.replace(/\/$/, "") === "/admin") return <Admin />;
+  const pathname = window.location.pathname.replace(/\/$/, "") || "/";
+  if (pathname === "/admin/login") return <Admin loginOnly />;
+  if (pathname === "/admin/projects" || pathname.startsWith("/admin/projects/")) return <AdminProjects />;
+  if (pathname.startsWith("/admin")) return <Admin />;
+  const projectMatch = /^\/projects\/([^/]+)$/.exec(pathname);
+  const isProjectPage = pathname === "/projects" || Boolean(projectMatch);
 
   return (
     <ConfigContext.Provider value={cfg}>
@@ -187,16 +231,20 @@ export default function App() {
       <ScrollUI progress={cfg.features.progress} toTop={cfg.features.toTop} />
 
       <div className="shell">
-        <Nav sections={secs} onToggleTheme={toggleTheme} />
+        <Nav sections={secs} onToggleTheme={toggleTheme} basePath={isProjectPage ? "/#" : ""} />
         <main id="main">
-          <Hero next={secs.length ? secs[0].id : ""} />
-          {cfg.features.marquee && cfg.marquee.length ? (
-            <Marquee items={cfg.marquee} />
-          ) : null}
-          {secs.map((s) => {
-            const Section = SECTIONS[s.id];
-            return <Section key={s.id} sec={s} onToast={setToast} />;
-          })}
+          {isProjectPage ? <PublicProjects slug={projectMatch ? decodeSegment(projectMatch[1]) : ""} /> : <>
+            <Hero next={secs.length ? secs[0].id : ""} />
+            {cfg.features.marquee && cfg.marquee.length ? (
+              <Marquee items={cfg.marquee} />
+            ) : null}
+            {secs.map((s) => {
+              const Section = SECTIONS[s.id];
+              return s.id === "work"
+                ? <Section key={s.id} sec={s} projectStatus={projectStatus} projectError={projectError} onRetry={loadProjects} onToast={setToast} />
+                : <Section key={s.id} sec={s} onToast={setToast} />;
+            })}
+          </>}
         </main>
       </div>
 

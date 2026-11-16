@@ -6,9 +6,10 @@ import Art from "./Art.jsx";
 import { ArrowIcon } from "./Icons.jsx";
 import Reveal from "./Reveal.jsx";
 import SectionHead from "./SectionHead.jsx";
-import { apiUrl } from "../lib/api.js";
+import { imageUrl } from "../lib/api.js";
+import { EmptyState, ErrorState, LoadingState } from "./RequestState.jsx";
 
-function ProjectCard({ p, i, hidden }) {
+export function ProjectCard({ p, i, hidden, className = "" }) {
   const ref = useRef(null);
   const color = /^#[0-9a-f]{6}$/i.test(p.color || "")
     ? p.color
@@ -38,7 +39,7 @@ function ProjectCard({ p, i, hidden }) {
       as="article"
       ref={ref}
       className={
-        "pcard " + (p.tone === "dark" ? "dark" : "") + (img ? " has-img" : "")
+        "pcard " + className + " " + (p.tone === "dark" ? "dark" : "") + (img ? " has-img" : "")
       }
       data-cat={p.cat || ""}
       style={{ "--c1": color }}
@@ -47,7 +48,7 @@ function ProjectCard({ p, i, hidden }) {
       onPointerLeave={onLeave}
     >
       <div className="art">
-        {img ? <img src={apiUrl(p.image)} alt={p.title + " project preview"} loading="lazy" /> : <Art name={p.art || p.thumb} />}
+        {img ? <img src={imageUrl(p.image)} alt={p.title + " project preview"} loading="lazy" /> : <Art name={p.art || p.thumb} />}
       </div>
       <span className="pc-num" aria-hidden="true">
         {String(i + 1).padStart(2, "0")}
@@ -66,18 +67,17 @@ function ProjectCard({ p, i, hidden }) {
           </ul>
         ) : null}
         <div className="pc-row">
-          {p.demo ? <a className="pc-link" href={url(p.demo)} target="_blank" rel="noopener noreferrer">View Project</a> : <span />}
+          {p.slug ? <a className="pc-link" href={`/projects/${encodeURIComponent(p.slug)}`}>Details</a> : null}
+          {p.demo ? <a className="pc-link" href={url(p.demo)} target="_blank" rel="noopener noreferrer">Live</a> : null}
           {p.code ? <a className="pc-code" href={url(p.code)} target="_blank" rel="noopener noreferrer">GitHub</a> : null}
-          <span className="pc-go">
-            <ArrowIcon />
-          </span>
+          {p.slug ? <a className="pc-go" href={`/projects/${encodeURIComponent(p.slug)}`} aria-label={`View ${p.title} details`}><ArrowIcon /></a> : null}
         </div>
       </div>
     </Reveal>
   );
 }
 
-export default function Work({ sec }) {
+export default function Work({ sec, projectStatus = "ready", projectError = "", onRetry }) {
   const cfg = useCfg();
   const [cat, setCat] = useState("");
   const cats = [...new Set(cfg.projects.map((p) => p.cat).filter(Boolean))];
@@ -113,8 +113,11 @@ export default function Work({ sec }) {
             </button>
           ))}
         </Reveal>
-      ) : <p className="empty-projects">Projects will appear here as they are published.</p>}
-      {cfg.projects.length ? (
+      ) : null}
+      {projectStatus === "loading" ? <LoadingState label="Loading published projects..." /> : null}
+      {projectStatus === "error" ? <ErrorState message={projectError} onRetry={onRetry} /> : null}
+      {projectStatus === "ready" && !cfg.projects.length ? <EmptyState>Projects will appear here as they are published.</EmptyState> : null}
+      {projectStatus === "ready" && cfg.projects.length ? (
         <div className="pgrid" id="projects">
           {cfg.projects.map((p, i) => (
             <ProjectCard
@@ -126,6 +129,7 @@ export default function Work({ sec }) {
           ))}
         </div>
       ) : null}
+      {projectStatus === "ready" && cfg.projects.length ? <a className="btn btn-out projects-more" href="/projects">View all projects <ArrowIcon /></a> : null}
     </section>
   );
 }

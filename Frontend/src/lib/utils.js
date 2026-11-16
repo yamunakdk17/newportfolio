@@ -6,7 +6,14 @@ export const EDIT =
 
 export const url = (u) =>
   /^(https?:|mailto:|tel:|#|\/|\.)/i.test(String(u || "")) ? u : "#";
-export const imgOk = (u) => /^(data:image\/|https?:|\/uploads\/)/i.test(String(u || ""));
+export const imgOk = (u) => Boolean(
+  typeof u === "string" &&
+  u.trim() &&
+  !/^blob:/i.test(u) &&
+  (/^data:image\//i.test(u) ||
+    /^(https?:)?\/\//i.test(u) ||
+    !/^[a-z][a-z0-9+.-]*:/i.test(u)),
+);
 export const initials = (n) =>
   String(n || "")
     .split(/\s+/)

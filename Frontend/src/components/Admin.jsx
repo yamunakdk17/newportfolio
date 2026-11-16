@@ -1,12 +1,13 @@
 import { useEffect, useState } from "react";
 import { api, apiUrl } from "../lib/api.js";
+import { clearAdminToken, getAdminToken, saveAdminToken } from "../lib/adminAuth.js";
 import { ArrowIcon } from "./Icons.jsx";
 
 const empty = { title: "", desc: "", tags: [], demo: "", code: "", image: "", published: false };
 const managed = ["about", "services", "stack", "experience", "education", "achievements"];
 
-export default function Admin() {
-  const [token, setToken] = useState(() => sessionStorage.getItem("admin-token") || "");
+export default function Admin({ loginOnly = false }) {
+  const [token, setToken] = useState(() => getAdminToken());
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [projects, setProjects] = useState([]);
@@ -22,8 +23,21 @@ export default function Admin() {
     setProjects(projectList); setContent(Object.fromEntries(managed.map((key, index) => [key, JSON.stringify(records[index], null, 2)]))); setMessages(records.at(-1));
   };
   useEffect(() => {
+    if (loginOnly && token) {
+      window.location.replace("/admin/projects");
+      return undefined;
+    }
+    if (!loginOnly && !token && window.location.pathname !== "/admin/login") {
+      window.location.replace("/admin/login");
+      return undefined;
+    }
     if (!token) return undefined;
-    const timer = setTimeout(() => refresh().catch((error) => { setNotice(error.message); setToken(""); sessionStorage.removeItem("admin-token"); }), 0);
+    const timer = setTimeout(() => refresh().catch((error) => {
+      setNotice(error.message || "Could not load admin data.");
+      setToken("");
+      clearAdminToken();
+      window.location.replace("/admin/login");
+    }), 0);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token]);
@@ -31,11 +45,17 @@ export default function Admin() {
 
   const login = async (event) => {
     event.preventDefault(); setBusy(true); setNotice("");
-    try { const result = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) }); sessionStorage.setItem("admin-token", result.token); setToken(result.token); setPassword(""); }
+    try {
+      const result = await api("/api/auth/login", { method: "POST", body: JSON.stringify({ email, password }) });
+      saveAdminToken(result.token);
+      setToken(result.token);
+      setPassword("");
+      window.location.replace("/admin/projects");
+    }
     catch (error) { setNotice(error.message); }
     finally { setBusy(false); }
   };
-  const logout = async () => { await api("/api/auth/logout", { method: "POST" }, token).catch(() => {}); sessionStorage.removeItem("admin-token"); setToken(""); };
+  const logout = async () => { await api("/api/auth/logout", { method: "POST" }, token).catch(() => {}); clearAdminToken(); setToken(""); window.location.replace("/admin/login"); };
   const image = async (event) => {
     const file = event.target.files?.[0]; if (!file) return;
     if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size > 8 * 1024 * 1024) { setNotice("Choose a JPG, PNG, or WEBP image under 8 MB."); return; }
@@ -72,6 +92,7 @@ export default function Admin() {
     <h1 className="grad">Portfolio admin</h1>
     {token ? <>
       <button className="btn btn-out" onClick={logout}>Sign out</button>
+      <a className="btn btn-grad" href="/admin/projects">Manage projects <ArrowIcon /></a>
       <section className="rcard glass admin-metrics"><h2>Dashboard</h2><p>{projects.length} projects · {projects.filter((item) => item.published).length} published · {JSON.parse(content.achievements || "[]").length} certifications · {messages.length} messages · {messages.filter((item) => !item.is_read).length} unread</p></section>
       <section className="rcard glass admin-form"><h2>{editId ? "Edit project" : "Add a project"}</h2>
         <form onSubmit={save}>

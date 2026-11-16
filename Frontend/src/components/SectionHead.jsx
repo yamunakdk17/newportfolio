@@ -10,14 +10,15 @@ export function renderTitle(t) {
     .map((part, i) => (i % 2 ? <em key={i}>{part}</em> : part));
 }
 
-export default function SectionHead({ sec }) {
+export default function SectionHead({ sec, heading = "h2" }) {
+  const Heading = heading;
   return (
     <Reveal className="sec-head">
       <span className="chip">
         <SparkIcon />
         {sec.kicker}
       </span>
-      <h2 className="h2">{renderTitle(sec.title)}</h2>
+      <Heading className="h2">{renderTitle(sec.title)}</Heading>
       {sec.lead && sec.id !== "contact" ? (
         <p className="lead">{sec.lead}</p>
       ) : null}

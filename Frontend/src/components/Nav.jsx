@@ -3,7 +3,7 @@ import { useCfg, secOn } from "../context.js";
 import { ChatIcon, MoonIcon, SunIcon } from "./Icons.jsx";
 
 /* Floating pill menu with a sliding highlight that follows the section in view. */
-export default function Nav({ sections, onToggleTheme }) {
+export default function Nav({ sections, onToggleTheme, basePath = "" }) {
   const cfg = useCfg();
   const links = [
     { id: "home", label: "Home" },
@@ -38,7 +38,7 @@ export default function Nav({ sections, onToggleTheme }) {
   useLayoutEffect(() => {
     const box = boxRef.current;
     const place = (scroll) => {
-      const a = box && box.querySelector('a[href="#' + active + '"]');
+      const a = box && box.querySelector(`[data-nav-id="${active}"]`);
       if (!a) return;
       setInd({
         left: a.offsetLeft,
@@ -78,7 +78,8 @@ export default function Nav({ sections, onToggleTheme }) {
           {links.map((l) => (
             <a
               key={l.id}
-              href={"#" + l.id}
+              href={basePath ? `${basePath}${l.id}` : "#" + l.id}
+              data-nav-id={l.id}
               aria-current={active === l.id ? "true" : "false"}
             >
               {l.label}
@@ -98,7 +99,7 @@ export default function Nav({ sections, onToggleTheme }) {
           </button>
         ) : null}
         {secOn(cfg, "contact") ? (
-          <a className="btn btn-grad" href="#contact">
+          <a className="btn btn-grad" href={basePath ? `${basePath}contact` : "#contact"}>
             Let's Talk <ChatIcon />
           </a>
         ) : null}
