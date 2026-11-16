@@ -1,6 +1,8 @@
 import Reveal from "./Reveal.jsx";
 import { SparkIcon } from "./Icons.jsx";
 
+/* eslint-disable react-refresh/only-export-components */
+
 /* "Projects I've {built}" -> the part in braces becomes a gradient <em>. */
 export function renderTitle(t) {
   return String(t || "")

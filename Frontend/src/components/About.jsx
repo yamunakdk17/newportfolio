@@ -13,6 +13,7 @@ function Counter({ value }) {
 
   useEffect(() => {
     if (reduce() || !("IntersectionObserver" in window)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setN(to);
       return undefined;
     }
@@ -45,6 +46,8 @@ function Counter({ value }) {
 export default function About({ sec }) {
   const cfg = useCfg();
   const s = cfg.site;
+  const about = Array.isArray(cfg.about) ? { paragraphs: cfg.about } : (cfg.about || {});
+  const paragraphs = about.paragraphs || [about.description, about.additionalDescription].filter(Boolean);
   const rows = [
     ["Name", s.name],
     ["Role", s.role],
@@ -55,10 +58,10 @@ export default function About({ sec }) {
 
   return (
     <section className="section" id={sec.id}>
-      <SectionHead sec={sec} />
+      <SectionHead sec={{ ...sec, title: about.title || sec.title, lead: about.lead || sec.lead }} />
       <Reveal className="bento">
         <div className="b-text glass">
-          {cfg.about.map((p, i) => (
+          {paragraphs.map((p, i) => (
             <p key={i}>{p}</p>
           ))}
         </div>
@@ -101,8 +104,8 @@ export default function About({ sec }) {
           {cfg.services.map((x, i) => (
             <div className="service glass" key={i}>
               <span className="n">{String(i + 1).padStart(2, "0")}</span>
-              <h3>{x.t}</h3>
-              <p>{x.d}</p>
+              <h3>{x.title || x.t}</h3>
+              <p>{x.description || x.d}</p>
             </div>
           ))}
         </Reveal>

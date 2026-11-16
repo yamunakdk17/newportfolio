@@ -12,7 +12,6 @@ const BASIC = [
   ["site.specialization", "Specialization (profile card)", "textarea"],
   ["site.location", "Based in"],
   ["site.intro", "Intro sentence under the headline", "textarea"],
-  ["site.building", "Currently building (leave empty to hide)"],
   ["site.email", "Email"],
   ["site.phone", "Phone (optional)"],
   ["site.github", "GitHub link"],
@@ -33,7 +32,6 @@ const FEATURES = [
   ["toTop", "Back to top button"],
   ["projectFilter", "Project filter buttons"],
   ["scrollToolkit", "Scrolling toolkit (off shows a grouped grid)"],
-  ["stats", "Stats cards in About"],
   ["skillBars", "Skill rings in Resume"],
   ["contactForm", "Contact form"],
 ];
@@ -41,7 +39,6 @@ const FEATURES = [
 const LISTS = [
   ["projects", "Projects"],
   ["about", "About paragraphs"],
-  ["stats", "Stats"],
   ["services", "Services"],
   ["stack", "Tech stack groups"],
   ["stackLabels", "Toolkit column labels"],
@@ -49,7 +46,6 @@ const LISTS = [
   ["experience", "Experience"],
   ["education", "Education"],
   ["achievements", "Achievements"],
-  ["testimonials", "Testimonials"],
   ["marquee", "Skills strip words"],
 ];
 
@@ -158,7 +154,7 @@ function ListEditor({ k, label, cfg, commit }) {
         return next;
       });
       setMsg("Applied.");
-    } catch (e) {
+  } catch (e) {
       setMsg("Could not apply: " + e.message);
     }
   };
@@ -187,6 +183,7 @@ function DataPanel({ cfg, commit, onReset, bump }) {
   const [msg, setMsg] = useState("");
   const [armed, setArmed] = useState(false);
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setText(json);
   }, [json]);
 
@@ -194,7 +191,7 @@ function DataPanel({ cfg, commit, onReset, bump }) {
     try {
       await navigator.clipboard.writeText(text);
       setMsg("Copied.");
-    } catch (e) {
+    } catch {
       setMsg("Select the text and copy it.");
     }
   };
@@ -353,7 +350,7 @@ export default function Editor({
             )}
           </Box>
 
-          <Box title="Photo">
+      <Box title="Photo">
             <label>
               Upload a portrait (it is resized and kept in this browser)
               <input

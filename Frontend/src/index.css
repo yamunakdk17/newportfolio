@@ -620,7 +620,7 @@ button {
 
 .h1 {
   margin: 26px 0 0;
-  font: 700 clamp(2.5rem, 5.8vw, 5rem)/1.12 var(--display);
+  font: 700 clamp(2rem, 3.8vw, 3.1rem)/1.12 var(--display);
   letter-spacing: -.015em;
   overflow-wrap: anywhere;
 }
@@ -630,10 +630,10 @@ button {
 }
 
 .hero-p {
-  margin: 24px 0 0;
+  margin: 20px 0 0;
   max-width: 54ch;
   color: var(--muted);
-  font-size: 1.12rem;
+  font-size: 1rem;
 }
 
 .cta {
@@ -870,14 +870,36 @@ button {
 .pcard {
   --c1: #f8cdb0;
   position: relative;
-  aspect-ratio: 1;
-  border-radius: 40px;
+  aspect-ratio: 1.18;
+  border-radius: 28px;
   overflow: hidden;
   background: var(--c1);
   color: #2a1b33;
   isolation: isolate;
   transition: transform .35s cubic-bezier(.2, .7, .2, 1);
 }
+
+.admin-page { width: min(920px, calc(100% - 36px)); margin: 40px auto 100px; }
+.admin-page > h1 { font: 700 clamp(2rem, 5vw, 3.5rem)/1.1 var(--display); }
+.admin-form { max-width: 680px; margin: 24px 0; padding: 28px; }
+.admin-form form { display: grid; gap: 16px; }
+.admin-form label { display: grid; gap: 7px; }
+.admin-form input:not([type="checkbox"]), .admin-form textarea { width: 100%; padding: 12px; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--text); background: var(--card); font: inherit; }
+.admin-form textarea { min-height: 110px; resize: vertical; }
+.admin-preview { display: flex; gap: 16px; align-items: center; }
+.admin-preview img { width: 120px; height: 90px; object-fit: cover; border-radius: 10px; }
+.admin-project { display: flex; align-items: center; gap: 10px; padding: 12px 0; border-top: 1px solid var(--line); }
+.admin-project div { flex: 1; display: grid; gap: 4px; }
+.admin-project small, .empty-projects { color: var(--muted); }
+.admin-content, .admin-metrics { margin: 20px 0; padding: 24px; }
+.admin-content summary { cursor: pointer; }
+.admin-content summary h2 { display: inline; }
+.admin-content textarea { width: 100%; min-height: 260px; margin: 14px 0; padding: 14px; border: 1px solid var(--line-strong); border-radius: 12px; color: var(--text); background: var(--card); font: .85rem/1.5 ui-monospace, monospace; }
+.admin-message { padding: 16px 0; border-top: 1px solid var(--line); overflow-wrap: anywhere; }
+.certificate-thumb { display: block; width: 100%; max-height: 220px; margin: 16px 0; object-fit: contain; border-radius: 12px; }
+.certificate-modal { position: fixed; inset: 0; z-index: 1000; display: grid; place-items: center; padding: 20px; background: rgb(0 0 0 / 82%); }
+.certificate-modal section { display: grid; justify-items: end; gap: 12px; max-width: min(100%, 1100px); max-height: 100%; }
+.certificate-modal img { max-width: 100%; max-height: calc(100vh - 100px); object-fit: contain; }
 
 .pcard:hover {
   transform: translateY(-4px);
@@ -924,7 +946,7 @@ button {
 
 .pc-top h3 {
   margin: 0;
-  font: 700 1.45rem/1.15 var(--display);
+  font: 700 1.2rem/1.2 var(--display);
   letter-spacing: -.01em;
 }
 
@@ -1535,96 +1557,6 @@ button {
 .acard .links {
   margin-top: auto;
   padding-top: 12px;
-}
-
-/* Testimonials */
-.tcar {
-  padding: clamp(1.6rem, 4vw, 3rem);
-  border-radius: 36px;
-  position: relative;
-  overflow: hidden;
-}
-
-.qmark {
-  position: absolute;
-  top: 6px;
-  right: 26px;
-  font: 700 9rem/1 var(--display);
-  opacity: .16;
-  pointer-events: none;
-}
-
-.tslide {
-  margin: 0;
-  animation: rise .6s both;
-}
-
-.tslide blockquote {
-  margin: 0;
-  font: 500 clamp(1.3rem, 2.6vw, 1.9rem)/1.45 var(--body);
-  max-width: 40ch;
-}
-
-.tslide figcaption {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 28px;
-}
-
-.tav {
-  width: 52px;
-  height: 52px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
-  border: 1px solid var(--line-strong);
-  font: 700 1.1rem var(--display);
-  flex: none;
-}
-
-.tslide figcaption b {
-  font: 600 1.05rem var(--display);
-  display: block;
-  line-height: 1.3;
-}
-
-.tslide figcaption small {
-  display: block;
-  color: var(--muted);
-}
-
-.tctl {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 30px;
-}
-
-.tctl .icon-btn {
-  border-color: var(--line-strong);
-}
-
-.dots {
-  display: flex;
-  gap: 8px;
-  margin: 0 6px;
-}
-
-.dots button {
-  width: 8px;
-  height: 8px;
-  border-radius: 8px;
-  border: 0;
-  padding: 0;
-  background: var(--line-strong);
-  cursor: pointer;
-  transition: width .25s, background .25s;
-}
-
-.dots button[aria-current="true"] {
-  width: 26px;
-  background: linear-gradient(90deg, var(--g1), var(--g2));
 }
 
 /* Contact */

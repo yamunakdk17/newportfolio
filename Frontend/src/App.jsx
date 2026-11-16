@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
-import { ConfigContext, secOn } from "./context.js";
+import { ConfigContext } from "./context.js";
 import { DEFAULTS } from "./data/defaults.js";
 import {
   EDIT,
@@ -23,10 +23,11 @@ import About from "./components/About.jsx";
 import Stack from "./components/Stack.jsx";
 import Resume from "./components/Resume.jsx";
 import Achievements from "./components/Achievements.jsx";
-import Testimonials from "./components/Testimonials.jsx";
 import Contact from "./components/Contact.jsx";
 import Footer from "./components/Footer.jsx";
 import Editor from "./components/Editor.jsx";
+import Admin from "./components/Admin.jsx";
+import { api } from "./lib/api.js";
 
 /* id used in cfg.sections -> component */
 const SECTIONS = {
@@ -35,7 +36,6 @@ const SECTIONS = {
   stack: Stack,
   resume: Resume,
   achievements: Achievements,
-  testimonials: Testimonials,
   contact: Contact,
 };
 
@@ -54,7 +54,7 @@ export default function App() {
   const resetAll = useCallback(() => {
     try {
       localStorage.removeItem(STORE);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
     setCfg(clone(DEFAULTS));
@@ -64,7 +64,7 @@ export default function App() {
   const [stored, setStored] = useState(() => {
     try {
       return localStorage.getItem("theme");
-    } catch (e) {
+    } catch {
       return null;
     }
   });
@@ -79,14 +79,14 @@ export default function App() {
     setStored(next);
     try {
       localStorage.setItem("theme", next);
-    } catch (e) {
+    } catch {
       /* ignore */
     }
   };
   const clearStoredTheme = () => {
     try {
       localStorage.removeItem("theme");
-    } catch (e) {
+    } catch {
       /* ignore */
     }
     setStored(null);
@@ -108,11 +108,24 @@ export default function App() {
         (lum(L.g1) + lum(L.g2)) / 2 > 0.55 ? "#17131c" : "#ffffff",
       );
     root.setAttribute("data-theme", theme);
-  }, [cfg.look.g1, cfg.look.g2, theme]);
+  }, [cfg.look, theme]);
 
   useEffect(() => {
     document.title = cfg.site.name + " | " + cfg.site.role;
   }, [cfg.site.name, cfg.site.role]);
+
+  useEffect(() => {
+    api("/api/portfolio").then((content) => setCfg((previous) => ({
+      ...previous,
+      projects: content.projects.map((project) => ({ ...project, cat: project.cat || "Project", kind: project.kind || "", tags: project.tags || [], demo: project.demo || "", code: project.code || "" })),
+      about: content.about,
+      services: content.services,
+      stack: content.stack,
+      experience: content.experience,
+      education: content.education,
+      achievements: content.achievements,
+    }))).catch(() => {});
+  }, []);
 
   useSpotlight();
 
@@ -156,6 +169,8 @@ export default function App() {
   }, [openEditor]);
 
   const secs = cfg.sections.filter((s) => s.on && SECTIONS[s.id]);
+
+  if (window.location.pathname.replace(/\/$/, "") === "/admin") return <Admin />;
 
   return (
     <ConfigContext.Provider value={cfg}>

@@ -4,50 +4,42 @@ import { url } from "../lib/utils.js";
 import { ArrowIcon, MailIcon } from "./Icons.jsx";
 import Reveal from "./Reveal.jsx";
 import SectionHead from "./SectionHead.jsx";
+import { api } from "../lib/api.js";
 
 const strip = (u) => String(u).replace(/^https?:\/\/(www\.)?/, "");
 
 export default function Contact({ sec, onToast }) {
   const cfg = useCfg();
   const s = cfg.site;
-  const [form, setForm] = useState({ name: "", email: "", msg: "" });
-  const [note, setNote] = useState(
-    "This opens your email app with the message filled in.",
-  );
+  const [form, setForm] = useState({ name: "", email: "", subject: "", msg: "" });
+  const [note, setNote] = useState("");
+  const [sending, setSending] = useState(false);
   const set = (k) => (e) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(s.email);
       onToast("Email copied to clipboard");
-    } catch (e) {
+    } catch {
       onToast(s.email);
     }
   };
 
-  const submit = (e) => {
+  const submit = async (e) => {
     e.preventDefault();
     const name = form.name.trim(),
       email = form.email.trim(),
-      msg = form.msg.trim();
-    if (!name || !email || !msg) {
-      setNote("Please fill in all three fields first.");
+      subject = form.subject.trim(), msg = form.msg.trim();
+    if (!name || !email || !subject || !msg || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setNote("Enter your name, a valid email, a subject, and a message.");
       return;
     }
-    const a = document.createElement("a");
-    a.href =
-      "mailto:" +
-      s.email +
-      "?subject=" +
-      encodeURIComponent("Message from " + name) +
-      "&body=" +
-      encodeURIComponent(msg + "\n\n" + name + "\n" + email);
-    a.click();
-    setNote(
-      "Opening your email app. If nothing opens, write to " +
-        s.email +
-        " directly.",
-    );
+    setSending(true); setNote("");
+    try {
+      const result = await api("/api/contact", { method: "POST", body: JSON.stringify({ name, email, subject, message: msg }) });
+      setNote(result.message); setForm({ name: "", email: "", subject: "", msg: "" });
+    } catch (error) { setNote(error.message || "We could not send your message. Please try again."); }
+    finally { setSending(false); }
   };
 
   const hasForm = cfg.features.contactForm;
@@ -119,6 +111,7 @@ export default function Contact({ sec, onToast }) {
               <input
                 id="f-name"
                 autoComplete="name"
+                required
                 value={form.name}
                 onChange={set("name")}
               />
@@ -129,16 +122,21 @@ export default function Contact({ sec, onToast }) {
                 id="f-email"
                 type="email"
                 autoComplete="email"
+                required
                 value={form.email}
                 onChange={set("email")}
               />
             </div>
             <div className="field">
-              <label htmlFor="f-msg">Message</label>
-              <textarea id="f-msg" value={form.msg} onChange={set("msg")} />
+              <label htmlFor="f-subject">Subject</label>
+              <input id="f-subject" value={form.subject} onChange={set("subject")} required />
             </div>
-            <button className="btn btn-grad" type="submit">
-              Send message <ArrowIcon />
+            <div className="field">
+              <label htmlFor="f-msg">Message</label>
+              <textarea id="f-msg" value={form.msg} onChange={set("msg")} required minLength={5} />
+            </div>
+            <button className="btn btn-grad" type="submit" disabled={sending}>
+              {sending ? "Sending…" : "Send message"} <ArrowIcon />
             </button>
             <p className="note" id="note" aria-live="polite">
               {note}

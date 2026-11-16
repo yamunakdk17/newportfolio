@@ -15,7 +15,7 @@ function shouldPlay(enabled) {
       return decided;
     }
     sessionStorage.setItem("intro-seen", "1");
-  } catch (e) {
+  } catch {
     /* ignore */
   }
   decided = true;

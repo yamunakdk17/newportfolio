@@ -8,6 +8,7 @@ export default function useTypewriter(roles) {
 
   useEffect(() => {
     if (reduce() || roles.length < 2) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setText(roles[0] || "");
       return undefined;
     }

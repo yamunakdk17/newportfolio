@@ -6,13 +6,13 @@ import Art from "./Art.jsx";
 import { ArrowIcon } from "./Icons.jsx";
 import Reveal from "./Reveal.jsx";
 import SectionHead from "./SectionHead.jsx";
+import { apiUrl } from "../lib/api.js";
 
 function ProjectCard({ p, i, hidden }) {
   const ref = useRef(null);
   const color = /^#[0-9a-f]{6}$/i.test(p.color || "")
     ? p.color
     : PASTELS[i % PASTELS.length];
-  const href = p.demo || p.code || "#";
   const img = imgOk(p.image);
 
   /* gentle 3D tilt under a mouse pointer */
@@ -46,14 +46,8 @@ function ProjectCard({ p, i, hidden }) {
       onPointerMove={onMove}
       onPointerLeave={onLeave}
     >
-      <a
-        className="pc-cover"
-        href={url(href)}
-        tabIndex={-1}
-        aria-hidden="true"
-      />
       <div className="art">
-        {img ? <img src={p.image} alt="" /> : <Art name={p.art || p.thumb} />}
+        {img ? <img src={apiUrl(p.image)} alt={p.title + " project preview"} loading="lazy" /> : <Art name={p.art || p.thumb} />}
       </div>
       <span className="pc-num" aria-hidden="true">
         {String(i + 1).padStart(2, "0")}
@@ -72,14 +66,8 @@ function ProjectCard({ p, i, hidden }) {
           </ul>
         ) : null}
         <div className="pc-row">
-          <a className="pc-link" href={url(href)}>
-            View Project
-          </a>
-          {p.code && p.demo ? (
-            <a className="pc-code" href={url(p.code)}>
-              Code
-            </a>
-          ) : null}
+          {p.demo ? <a className="pc-link" href={url(p.demo)} target="_blank" rel="noopener noreferrer">View Project</a> : <span />}
+          {p.code ? <a className="pc-code" href={url(p.code)} target="_blank" rel="noopener noreferrer">GitHub</a> : null}
           <span className="pc-go">
             <ArrowIcon />
           </span>
@@ -125,7 +113,7 @@ export default function Work({ sec }) {
             </button>
           ))}
         </Reveal>
-      ) : null}
+      ) : <p className="empty-projects">Projects will appear here as they are published.</p>}
       {cfg.projects.length ? (
         <div className="pgrid" id="projects">
           {cfg.projects.map((p, i) => (

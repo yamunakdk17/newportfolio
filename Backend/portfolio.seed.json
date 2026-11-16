@@ -1,0 +1,19 @@
+{
+  "projects": [],
+  "about": { "title": "About me", "description": "I’m a Full Stack Developer and fresher interested in frontend, backend, and MERN stack development. I build practical projects and keep improving my technical skills.", "additionalDescription": "I enjoy creating responsive interfaces, working with APIs, and learning how complete applications fit together.", "highlights": [] },
+  "services": [
+    { "title": "Frontend Development", "description": "Responsive interfaces built with React, JavaScript, HTML, and CSS.", "published": true },
+    { "title": "Backend Development", "description": "Backend services and REST APIs using Node.js, Express, and Python.", "published": true },
+    { "title": "Database Development", "description": "Working with MongoDB and MySQL for application data.", "published": true }
+  ],
+  "stack": [
+    { "name": "Frontend", "side": "front", "items": ["React", "JavaScript", "HTML", "CSS"] },
+    { "name": "Backend", "side": "back", "items": ["Node.js", "Express.js", "Python", "REST API"] },
+    { "name": "Database", "side": "back", "items": ["MongoDB", "MySQL"] },
+    { "name": "Tools", "side": "back", "items": ["Git", "GitHub", "Docker"] }
+  ],
+  "experience": [{ "id": "smart-gk-internship", "when": "2026 — Present", "title": "Internship / Intern", "org": "Smart GK", "note": "", "published": true }],
+  "education": [{ "id": "bsc-csit-kfa", "when": "2026 — Present", "title": "BSc CSIT", "org": "KFA College", "note": "Currently running; expected duration through 2029.", "published": true }],
+  "achievements": [],
+  "messages": []
+}

@@ -6,7 +6,7 @@ export const EDIT =
 
 export const url = (u) =>
   /^(https?:|mailto:|tel:|#|\/|\.)/i.test(String(u || "")) ? u : "#";
-export const imgOk = (u) => /^(data:image\/|https?:)/i.test(String(u || ""));
+export const imgOk = (u) => /^(data:image\/|https?:|\/uploads\/)/i.test(String(u || ""));
 export const initials = (n) =>
   String(n || "")
     .split(/\s+/)
@@ -54,7 +54,7 @@ export function loadConfig(defaults) {
   try {
     const s = localStorage.getItem(STORE);
     if (s) merge(cfg, JSON.parse(s));
-  } catch (e) {
+  } catch {
     /* ignore */
   }
   return cfg;
@@ -62,7 +62,7 @@ export function loadConfig(defaults) {
 export function saveConfig(cfg) {
   try {
     localStorage.setItem(STORE, JSON.stringify(cfg));
-  } catch (e) {
+  } catch {
     /* ignore */
   }
 }

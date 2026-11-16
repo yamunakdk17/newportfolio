@@ -55,13 +55,6 @@ export default function Hero({ next }) {
             </a>
           ) : null}
         </div>
-        {s.building ? (
-          <div className="now hero-in" style={{ "--i": 5 }}>
-            <i />
-            <small>Currently building</small>
-            <span>{s.building}</span>
-          </div>
-        ) : null}
       </div>
       {next ? (
         <a
