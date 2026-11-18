@@ -38,7 +38,13 @@ export async function getPortfolioPayload() {
       highlights: [],
     },
     services: data.services || data.capabilities || [],
-    stack: data.stack || [],
+    stack: (Array.isArray(data.stack) ? data.stack : []).filter(
+      (group) =>
+        group &&
+        typeof group.name === 'string' &&
+        group.name.trim() &&
+        Array.isArray(group.items),
+    ),
     experience: data.experience || [],
     education: data.education || [],
     achievements: data.achievements || [],
@@ -46,7 +52,17 @@ export async function getPortfolioPayload() {
 }
 
 export async function getAdminPayload() {
-  return getAdminCollections();
+  const payload = await getAdminCollections();
+  return {
+    ...payload,
+    stack: (Array.isArray(payload.stack) ? payload.stack : []).filter(
+      (group) =>
+        group &&
+        typeof group.name === 'string' &&
+        group.name.trim() &&
+        Array.isArray(group.items),
+    ),
+  };
 }
 
 export async function createProject(payload) {

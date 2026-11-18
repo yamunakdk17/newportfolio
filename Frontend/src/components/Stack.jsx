@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useCfg } from "../context.js";
 import { TOOLS } from "../data/defaults.js";
+import { getPublicTools } from "../services/toolsService.js";
 import Reveal from "./Reveal.jsx";
 import SectionHead from "./SectionHead.jsx";
 
@@ -38,18 +40,49 @@ function Track({ list }) {
 
 export default function Stack({ sec }) {
   const cfg = useCfg();
-  const front = cfg.stack
-    .filter((g) => g.side !== "back")
-    .flatMap((g) => g.items);
-  const back = cfg.stack
-    .filter((g) => g.side === "back")
-    .flatMap((g) => g.items);
+  const [tools, setTools] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    let active = true;
+    getPublicTools()
+      .then((data) => {
+        if (active) setTools(Array.isArray(data) ? data.filter((tool) => tool.published !== false) : []);
+      })
+      .catch((requestError) => {
+        if (active) setError(requestError.message || "Could not load tools.");
+      })
+      .finally(() => {
+        if (active) setLoading(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  const orderedTools = tools
+    .slice()
+    .sort((a, b) => (Number(a.order) || 0) - (Number(b.order) || 0));
+  const splitIndex = Math.ceil(orderedTools.length / 2);
+  const leftTools = orderedTools.slice(0, splitIndex);
+  const rightTools = orderedTools.slice(splitIndex);
+  const leftNames = leftTools.map((tool) => tool.name);
+  const rightNames = rightTools.map((tool) => tool.name);
+  const leftCategories = [...new Set(leftTools.map((tool) => tool.category).filter(Boolean))];
+  const rightCategories = [...new Set(rightTools.map((tool) => tool.category).filter(Boolean))];
   const L = cfg.stackLabels || [];
 
   return (
     <section className="section" id={sec.id}>
       <SectionHead sec={sec} />
-      {cfg.features.scrollToolkit ? (
+      {loading ? (
+        <Reveal className="stack"><p>Loading tools...</p></Reveal>
+      ) : error ? (
+        <Reveal className="error-state"><p role="alert">{error}</p></Reveal>
+      ) : !orderedTools.length ? (
+        <Reveal className="stack"><p>No tools have been added yet.</p></Reveal>
+      ) : cfg.features.scrollToolkit ? (
         <>
           <Reveal className="kit-labels">
             <span>{L[0] || ""}</span>
@@ -58,7 +91,7 @@ export default function Stack({ sec }) {
           </Reveal>
           <Reveal className="kit">
             <div className="kit-win kit-left">
-              <Track list={front} />
+              <Track list={leftNames} />
             </div>
             <div className="spine" aria-hidden="true">
               <span className="ticks t1" />
@@ -68,22 +101,28 @@ export default function Stack({ sec }) {
               <i className="orn bot" />
             </div>
             <div className="kit-win kit-right">
-              <Track list={back} />
+              <Track list={rightNames} />
             </div>
           </Reveal>
         </>
       ) : (
-        <Reveal className="stack">
-          {cfg.stack.map((g) => (
-            <div className="glass" key={g.name}>
-              <h3>{g.name}</h3>
-              <ul>
-                {g.items.map((n) => (
-                  <ToolItem key={n} name={n} plain />
+        <Reveal className="stack stack-sides">
+          {[{ side: "left", categories: leftCategories, sideTools: leftTools },
+            { side: "right", categories: rightCategories, sideTools: rightTools }]
+            .map((column) => (
+              <div className="stack-side" key={column.side}>
+                {column.categories.map((category) => (
+                  <div className="glass stack-category" key={category}>
+                    <h3>{category}</h3>
+                    <ul>
+                      {column.sideTools.filter((tool) => tool.category === category).map((tool) => (
+                        <ToolItem key={tool.id} name={tool.name} plain />
+                      ))}
+                    </ul>
+                  </div>
                 ))}
-              </ul>
-            </div>
-          ))}
+              </div>
+            ))}
         </Reveal>
       )}
     </section>

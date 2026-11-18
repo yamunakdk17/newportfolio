@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
 import { useCfg } from "../context.js";
-import { reduce, url } from "../lib/utils.js";
+import { reduce } from "../lib/utils.js";
 import { DownloadIcon } from "./Icons.jsx";
 import Reveal from "./Reveal.jsx";
 import SectionHead from "./SectionHead.jsx";
+import { imageUrl } from "../lib/api.js";
 
 /* Counts up from 0 the first time it is at least 60% visible. */
 function Counter({ value }) {
@@ -77,7 +78,7 @@ export default function About({ sec }) {
           {s.cvUrl ? (
             <a
               className="btn btn-grad"
-              href={url(s.cvUrl)}
+              href={imageUrl(s.cvUrl)}
               target="_blank"
               rel="noopener"
             >

@@ -10,6 +10,8 @@ Use Node.js 20 or newer. Copy `.env.example` to `.env`, then set:
 - `ADMIN_EMAIL` and `ADMIN_PASSWORD` to private credentials
 - `FRONTEND_ORIGIN` to the exact deployed frontend origin
 - `PORT` if the hosting platform does not provide it
+- Optional `MAIL_HOST`, `MAIL_PORT`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM`, and
+  `CONTACT_RECEIVER_EMAIL` for contact-form email notifications
 
 Create the database before starting the API, for example:
 

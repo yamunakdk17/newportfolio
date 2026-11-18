@@ -112,24 +112,7 @@ export const DEFAULTS = {
   about: [],
   services: [],
   stackLabels: ['What people see', 'What makes it work'],
-  stack: [
-    {
-      name: 'Frontend',
-      side: 'front',
-      items: ['React', 'React', 'JavaScript', 'HTML', 'CSS'],
-    },
-    {
-      name: 'Backend',
-      side: 'back',
-      items: ['Node.js', 'Express.js', 'Python', 'REST API'],
-    },
-    { name: 'Database', side: 'back', items: ['MySQL', 'MongoDB'] },
-    {
-      name: 'Tools',
-      side: 'back',
-      items: ['Git', 'GitHub', 'Docker'],
-    },
-  ],
+  stack: [],
   skills: [
     {
       group: 'Languages',

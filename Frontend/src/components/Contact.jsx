@@ -4,7 +4,7 @@ import { url } from "../lib/utils.js";
 import { ArrowIcon, MailIcon } from "./Icons.jsx";
 import Reveal from "./Reveal.jsx";
 import SectionHead from "./SectionHead.jsx";
-import { api } from "../lib/api.js";
+import { submitContact } from "../services/portfolioService.js";
 
 const strip = (u) => String(u).replace(/^https?:\/\/(www\.)?/, "");
 
@@ -36,7 +36,7 @@ export default function Contact({ sec, onToast }) {
     }
     setSending(true); setNote("");
     try {
-      const result = await api("/api/contact", { method: "POST", body: JSON.stringify({ name, email, subject, message: msg }) });
+      const result = await submitContact({ name, email, subject, message: msg });
       setNote(result.message); setForm({ name: "", email: "", subject: "", msg: "" });
     } catch (error) { setNote(error.message || "We could not send your message. Please try again."); }
     finally { setSending(false); }

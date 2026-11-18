@@ -8,30 +8,26 @@ import Background from './components/Background.jsx';
 import Cursor from './components/Cursor.jsx';
 import Intro from './components/Intro.jsx';
 import ScrollUI from './components/ScrollUI.jsx';
-import Nav from './components/Nav.jsx';
-import Hero from './components/Hero.jsx';
-import Marquee from './components/Marquee.jsx';
-import Work from './components/Work.jsx';
-import About from './components/About.jsx';
-import Stack from './components/Stack.jsx';
-import Resume from './components/Resume.jsx';
-import Achievements from './components/Achievements.jsx';
-import Contact from './components/Contact.jsx';
-import Footer from './components/Footer.jsx';
+import PublicLayout from './components/layout/PublicLayout.jsx';
 import Editor from './components/Editor.jsx';
-import Admin from './components/Admin.jsx';
-import AdminProjects from './components/AdminProjects.jsx';
-import PublicProjects from './components/PublicProjects.jsx';
-import { api } from './lib/api.js';
+import Home from './pages/Home.jsx';
+import Projects from './pages/Projects.jsx';
+import ProjectDetails from './pages/ProjectDetails.jsx';
+import AdminLogin from './pages/admin/AdminLogin.jsx';
+import AdminHome from './pages/admin/AdminHome.jsx';
+import AdminProjects from './pages/admin/AdminProjects.jsx';
+import AdminProjectCreate from './pages/admin/AdminProjectCreate.jsx';
+import AdminProjectEdit from './pages/admin/AdminProjectEdit.jsx';
+import AdminAbout from './pages/admin/AdminAbout.jsx';
 
-const SECTIONS = {
-  work: Work,
-  about: About,
-  stack: Stack,
-  resume: Resume,
-  achievements: Achievements,
-  contact: Contact,
-};
+import AdminTools from './pages/admin/AdminTools.jsx';
+import AdminExperience from './pages/admin/AdminExperience.jsx';
+import AdminEducation from './pages/admin/AdminEducation.jsx';
+import AdminAchievements from './pages/admin/AdminAchievements.jsx';
+import AdminMessages from './pages/admin/AdminMessages.jsx';
+import AdminCv from './pages/admin/AdminCv.jsx';
+import { getPortfolio } from './services/portfolioService.js';
+import { getPublishedProjects } from './services/projectService.js';
 
 const decodeSegment = (value) => {
   try {
@@ -142,7 +138,7 @@ export default function App() {
   }, [cfg.site.name, cfg.site.role]);
 
   useEffect(() => {
-    api('/api/portfolio')
+    getPortfolio()
       .then((content) => {
         setCfg((previous) => ({
           ...previous,
@@ -173,9 +169,7 @@ export default function App() {
     setProjectError('');
 
     try {
-      const result = await api('/api/projects');
-
-      const projects = Array.isArray(result) ? result : [];
+      const projects = await getPublishedProjects();
 
       setCfg((previous) => ({
         ...previous,
@@ -267,25 +261,43 @@ export default function App() {
     };
   }, [openEditor]);
 
-  const secs = cfg.sections.filter((section) => section.on && SECTIONS[section.id]);
-
   const pathname = window.location.pathname.replace(/\/$/, '') || '/';
 
   if (pathname === '/admin/login') {
-    return <Admin loginOnly />;
+    return <AdminLogin />;
   }
 
-  if (pathname === '/admin/projects' || pathname.startsWith('/admin/projects/')) {
+  if (pathname === '/admin/projects') {
     return <AdminProjects />;
   }
 
+  if (pathname === '/admin/projects/create' || pathname === '/admin/projects/new') {
+    return <AdminProjectCreate />;
+  }
+
+  const adminProjectEditMatch = /^\/admin\/projects\/([^/]+)$/.exec(pathname);
+
+  if (adminProjectEditMatch) {
+    return <AdminProjectEdit id={decodeSegment(adminProjectEditMatch[1])} />;
+  }
+
+  if (pathname === '/admin/about') return <AdminAbout />;
+
+  if (pathname === '/admin/tools') return <AdminTools />;
+  if (pathname === '/admin/experience') return <AdminExperience />;
+  if (pathname === '/admin/education') return <AdminEducation />;
+  if (pathname === '/admin/achievements') return <AdminAchievements />;
+  if (pathname === '/admin/messages') return <AdminMessages />;
+  if (pathname === '/admin/cv') return <AdminCv />;
+
   if (pathname.startsWith('/admin')) {
-    return <Admin />;
+    return <AdminHome />;
   }
 
   const projectMatch = /^\/projects\/([^/]+)$/.exec(pathname);
 
   const isProjectPage = pathname === '/projects' || Boolean(projectMatch);
+  const publicSections = cfg.sections.filter((section) => section.on);
 
   return (
     <ConfigContext.Provider value={cfg}>
@@ -305,54 +317,25 @@ export default function App() {
 
       <ScrollUI progress={cfg.features.progress} toTop={cfg.features.toTop} />
 
-      <div className="shell">
-        <Nav
-          sections={secs}
-          onToggleTheme={toggleTheme}
-          basePath={isProjectPage ? '/#' : ''}
-        />
-
-        <main id="main">
-          {isProjectPage ? (
-            <PublicProjects slug={projectMatch ? decodeSegment(projectMatch[1]) : ''} />
-          ) : (
-            <>
-              <Hero next={secs.length ? secs[0].id : ''} />
-
-              {cfg.features.marquee && cfg.marquee.length ? (
-                <Marquee items={cfg.marquee} />
-              ) : null}
-
-              {secs.map((sectionConfig) => {
-                const Section = SECTIONS[sectionConfig.id];
-
-                if (sectionConfig.id === 'work') {
-                  return (
-                    <Section
-                      key={sectionConfig.id}
-                      sec={sectionConfig}
-                      projectStatus={projectStatus}
-                      projectError={projectError}
-                      onRetry={loadProjects}
-                      onToast={setToast}
-                    />
-                  );
-                }
-
-                return (
-                  <Section
-                    key={sectionConfig.id}
-                    sec={sectionConfig}
-                    onToast={setToast}
-                  />
-                );
-              })}
-            </>
-          )}
-        </main>
-      </div>
-
-      <Footer onSecret={openEditor} />
+      <PublicLayout
+        sections={publicSections}
+        onToggleTheme={toggleTheme}
+        onSecret={openEditor}
+        projectPage={isProjectPage}>
+        {pathname === '/projects' ? (
+          <Projects />
+        ) : projectMatch ? (
+          <ProjectDetails slug={decodeSegment(projectMatch[1])} />
+        ) : (
+          <Home
+            cfg={cfg}
+            projectStatus={projectStatus}
+            projectError={projectError}
+            onRetryProjects={loadProjects}
+            onToast={setToast}
+          />
+        )}
+      </PublicLayout>
 
       <div id="toast" className={toast ? 'show' : ''} role="status" aria-live="polite">
         {toast}

@@ -235,6 +235,10 @@ export async function getPublicPortfolio() {
   const snapshot = await readPortfolioStore();
   return {
     ...snapshot,
+    site: {
+      ...(snapshot.site || {}),
+      cvUrl: snapshot.site?.cvUrl || snapshot.siteSettings?.cvUrl || '',
+    },
     projects: (snapshot.projects || [])
       .filter((project) => project.published === true)
       .map((project) => ({

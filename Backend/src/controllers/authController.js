@@ -9,7 +9,7 @@ export async function loginController(request, response) {
   const body = request.body || {};
 
   const email = String(body.email || '').trim();
-  const password = String(body.password || '').trim();
+  const password = String(body.password || '');
 
   if (!email || !password) {
     return response.status(400).json({

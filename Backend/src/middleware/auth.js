@@ -31,7 +31,7 @@ export function isAuthorizedRequest(request) {
 
 export async function verifyAdminCredentials(email, password) {
   const normalizedEmail = String(email || '').trim();
-  const normalizedPassword = String(password || '').trim();
+  const normalizedPassword = String(password || '');
   const expectedEmail = process.env.ADMIN_EMAIL || '';
   const expectedPassword = process.env.ADMIN_PASSWORD || '';
   if (!normalizedEmail || !normalizedPassword || !expectedEmail || !expectedPassword) return false;

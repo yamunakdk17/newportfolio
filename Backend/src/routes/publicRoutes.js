@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   getHealthController,
   getPublicPortfolioController,
+  getPublicToolsController,
   getPublicCollectionController,
   getPublicProjectController,
   submitContactController,
@@ -11,6 +12,7 @@ const router = Router();
 
 router.get('/health', getHealthController);
 router.get('/portfolio', getPublicPortfolioController);
+router.get('/tools', getPublicToolsController);
 router.get('/projects', getPublicCollectionController);
 router.get('/projects/:slug', getPublicProjectController);
 router.get('/about', getPublicCollectionController);

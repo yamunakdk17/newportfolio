@@ -34,6 +34,22 @@ export async function getPublicPortfolioController(_request, response) {
   respond(response, 200, payload);
 }
 
+export async function getPublicToolsController(_request, response) {
+  const payload = await getPortfolioPayload();
+  let order = 0;
+  const tools = (Array.isArray(payload.stack) ? payload.stack : []).flatMap((group) =>
+    (Array.isArray(group.items) ? group.items : []).map((name) => ({
+      id: `${group.id || group.name}-${order}`,
+      name,
+      category: group.name,
+      side: group.side === 'front' ? 'front' : 'back',
+      order: order++,
+      published: true,
+    })),
+  );
+  respond(response, 200, tools);
+}
+
 export async function getPublicCollectionController(request, response) {
   const payload = await getPortfolioPayload();
   const map = {
@@ -85,21 +101,19 @@ export async function submitContactController(request, response) {
     message,
     createdAt: new Date().toISOString(),
   });
+  let notificationSent = false;
   try {
-    const sent = await sendContactNotification(saved);
-    if (!sent)
-      return respond(response, 503, {
-        error: 'Message saved, but email delivery is not configured.',
-      });
+    notificationSent = await sendContactNotification(saved);
+    if (!notificationSent) {
+      console.warn('Contact message saved, but email notification is not configured.');
+    }
   } catch (error) {
     console.error(error);
-    return respond(response, 502, {
-      error: 'Message saved, but email delivery failed. Please try again later.',
-    });
   }
   respond(response, 201, {
     ok: true,
-    message: 'Thanks for reaching out. Your message has been sent successfully.',
+    message: 'Thanks for reaching out. Your message has been received.',
+    notificationSent,
     saved,
   });
 }
@@ -147,6 +161,29 @@ export async function saveAdminCollectionController(request, response) {
   if (collection === 'about') {
     const result = await saveAboutContent(payload);
     return respond(response, 200, result);
+  }
+  if (collection === 'stack') {
+    if (!Array.isArray(payload)) {
+      return respond(response, 400, { error: 'Stack must be a list of groups.' });
+    }
+    const seenTools = new Set();
+    const validGroups = payload.every((group) => {
+      if (!group || typeof group.name !== 'string' || !group.name.trim()) return false;
+      if (!Array.isArray(group.items)) return false;
+      if (group.side !== 'front' && group.side !== 'back') return false;
+      return group.items.every((item) => {
+        if (typeof item !== 'string' || !item.trim()) return false;
+        const key = item.trim().toLowerCase();
+        if (seenTools.has(key)) return false;
+        seenTools.add(key);
+        return true;
+      });
+    });
+    if (!validGroups) {
+      return respond(response, 400, {
+        error: 'Each stack group needs a name, valid side, and unique tool items.',
+      });
+    }
   }
   const updated = await updateContent(collection, payload);
   return respond(response, 200, updated);

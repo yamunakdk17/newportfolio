@@ -1,14 +1,14 @@
 import { useCfg, secOn } from '../context.js';
-import { url } from '../lib/utils.js';
 import Profile from './Profile.jsx';
 import { ArrowDownIcon, DownloadIcon, GridIcon, SparkIcon } from './Icons.jsx';
+import { imageUrl } from '../lib/api.js';
 
 export default function Hero({ next }) {
   const cfg = useCfg();
   const s = cfg.site;
   const role = 'Full Stack Developer';
 
-  const cvUrl = s.cvUrl ? url(s.cvUrl) : '';
+  const cvUrl = s.cvUrl ? imageUrl(s.cvUrl) : '';
 
   const handleDownloadCv = async () => {
     if (!cvUrl) return;
@@ -31,7 +31,7 @@ export default function Hero({ next }) {
       link.click();
       link.remove();
 
-      window.URL.revokeObjectURL(blobUrl);
+      window.setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
     } catch (error) {
       console.error('CV download failed:', error);
     }

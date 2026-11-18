@@ -1,8 +1,18 @@
 import { useEffect, useState } from 'react';
-import { api, imageUrl } from '../lib/api.js';
+import { imageUrl } from '../lib/api.js';
+import {
+  createAdminProject,
+  deleteAdminProject,
+  getAdminProjects,
+  setAdminProjectPublished,
+  updateAdminProject,
+  uploadProjectImage,
+} from '../services/projectService.js';
+import { logoutAdmin } from '../services/authService.js';
 import { clearAdminToken, getAdminToken } from '../lib/adminAuth.js';
 import { ArrowIcon } from './Icons.jsx';
 import { EmptyState, ErrorState, LoadingState } from './RequestState.jsx';
+import AdminLayout from './admin/AdminLayout.jsx';
 
 const EMPTY_FORM = {
   title: '',
@@ -84,8 +94,14 @@ function normalizeProject(project) {
   };
 }
 
-export default function AdminProjects() {
-  const route = routeInfo();
+export default function AdminProjects({ forcedMode, forcedId }) {
+  const detectedRoute = routeInfo();
+  const route = forcedMode
+    ? {
+        mode: forcedMode,
+        ...(forcedId ? { id: forcedId } : {}),
+      }
+    : detectedRoute;
   const token = getAdminToken();
 
   const [projects, setProjects] = useState([]);
@@ -105,7 +121,7 @@ export default function AdminProjects() {
     setError('');
 
     try {
-      const response = await api('/api/admin/projects');
+      const response = await getAdminProjects();
 
       const projectList = Array.isArray(response) ? response.map(normalizeProject) : [];
 
@@ -213,12 +229,7 @@ export default function AdminProjects() {
         reader.readAsDataURL(file);
       });
 
-      const result = await api('/api/admin/uploads', {
-        method: 'POST',
-        body: JSON.stringify({
-          data,
-        }),
-      });
+      const result = await uploadProjectImage(data);
 
       setForm((value) => ({
         ...value,
@@ -271,15 +282,9 @@ export default function AdminProjects() {
     try {
       const isEdit = route.mode === 'edit';
 
-      await api(
-        isEdit
-          ? `/api/admin/projects/${encodeURIComponent(route.id)}`
-          : '/api/admin/projects',
-        {
-          method: isEdit ? 'PUT' : 'POST',
-          body: JSON.stringify(payload),
-        },
-      );
+      await (isEdit
+        ? updateAdminProject(route.id, payload)
+        : createAdminProject(payload));
 
       setSaved(true);
 
@@ -315,9 +320,7 @@ export default function AdminProjects() {
     setNotice('');
 
     try {
-      await api(`/api/admin/projects/${encodeURIComponent(project.id)}`, {
-        method: 'DELETE',
-      });
+      await deleteAdminProject(project.id);
 
       setNotice('Project deleted successfully.');
 
@@ -339,12 +342,7 @@ export default function AdminProjects() {
     const nextPublished = !project.published;
 
     try {
-      await api(`/api/admin/projects/${encodeURIComponent(project.id)}/publish`, {
-        method: 'PATCH',
-        body: JSON.stringify({
-          published: nextPublished,
-        }),
-      });
+      await setAdminProjectPublished(project.id, nextPublished);
 
       setNotice(
         nextPublished ? 'Project published successfully.' : 'Project moved to drafts.',
@@ -363,13 +361,7 @@ export default function AdminProjects() {
 
   const logout = async () => {
     try {
-      await api(
-        '/api/auth/logout',
-        {
-          method: 'POST',
-        },
-        token,
-      );
+      await logoutAdmin(token);
     } finally {
       clearAdminToken();
       window.location.replace('/admin/login');
@@ -378,280 +370,280 @@ export default function AdminProjects() {
 
   if (!token) {
     return (
-      <main className="admin-page">
+      <AdminLayout title="Project management">
         <LoadingState label="Redirecting to admin sign in..." />
-      </main>
+      </AdminLayout>
     );
   }
 
   if (route.mode !== 'list' && listStatus === 'loading') {
     return (
-      <main className="admin-page">
+      <AdminLayout title="Project management">
         <LoadingState label="Loading project..." />
-      </main>
+      </AdminLayout>
     );
   }
 
   return (
-    <main className="admin-page admin-projects-page">
-      <header className="admin-projects-head">
-        <div>
-          <a className="btn btn-text" href="/admin">
-            ← Admin dashboard
-          </a>
+    <AdminLayout
+      title="Project management"
+      description="Manage project details and what appears on your public portfolio.">
+      <div className="admin-projects-page">
+        <header className="admin-projects-head">
+          <div>
+            <h1 className="grad">Project management</h1>
 
-          <h1 className="grad">Project management</h1>
+            <p>Manage project details and what appears on your public portfolio.</p>
+          </div>
 
-          <p>Manage project details and what appears on your public portfolio.</p>
-        </div>
-
-        <div className="admin-projects-actions">
-          {route.mode === 'list' ? (
-            <a className="btn btn-grad" href="/admin/projects/new">
-              Add project <ArrowIcon />
-            </a>
-          ) : null}
-
-          <button className="btn btn-out" type="button" onClick={logout}>
-            Sign out
-          </button>
-        </div>
-      </header>
-
-      {error ? (
-        <ErrorState
-          message={error}
-          onRetry={route.mode === 'list' ? refresh : undefined}
-        />
-      ) : null}
-
-      {notice ? (
-        <p className="admin-notice" role="status">
-          {notice}
-        </p>
-      ) : null}
-
-      {route.mode === 'list' ? (
-        <section className="rcard glass admin-project-list">
-          <h2>
-            Projects <span className="admin-count">{projects.length}</span>
-          </h2>
-
-          {listStatus === 'loading' ? <LoadingState label="Loading projects..." /> : null}
-
-          {listStatus === 'ready' && projects.length === 0 ? (
-            <div className="admin-empty">
-              <EmptyState>No projects yet. Add one to get started.</EmptyState>
-
-              <a className="btn btn-grad" href="/admin/projects/new">
-                Create your first project <ArrowIcon />
+          <div className="admin-projects-actions">
+            {route.mode === 'list' ? (
+              <a className="btn btn-grad" href="/admin/projects/create">
+                Add project <ArrowIcon />
               </a>
-            </div>
-          ) : null}
+            ) : null}
 
-          {listStatus === 'ready' && projects.length > 0 ? (
-            <div className="admin-table-wrap">
-              <table className="admin-project-table">
-                <thead>
-                  <tr>
-                    <th>Project</th>
-                    <th>Technologies</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
+            <button className="btn btn-out" type="button" onClick={logout}>
+              Sign out
+            </button>
+          </div>
+        </header>
 
-                <tbody>
-                  {projects.map((project) => (
-                    <tr key={project.id}>
-                      <td>
-                        <div className="admin-project-title">
-                          {project.image ? (
-                            <img src={imageUrl(project.image)} alt="" />
-                          ) : (
-                            <span className="admin-image-placeholder">—</span>
-                          )}
+        {error ? (
+          <ErrorState
+            message={error}
+            onRetry={route.mode === 'list' ? refresh : undefined}
+          />
+        ) : null}
 
-                          <strong>{project.title || 'Untitled project'}</strong>
-                        </div>
-                      </td>
+        {notice ? (
+          <p className="admin-notice" role="status">
+            {notice}
+          </p>
+        ) : null}
 
-                      <td>{project.technologies.join(', ') || '—'}</td>
+        {route.mode === 'list' ? (
+          <section className="rcard glass admin-project-list">
+            <h2>
+              Projects <span className="admin-count">{projects.length}</span>
+            </h2>
 
-                      <td>
-                        <span
-                          className={`project-status ${
-                            project.published ? 'is-published' : ''
-                          }`}>
-                          {project.published ? 'Published' : 'Draft'}
-                        </span>
-                      </td>
+            {listStatus === 'loading' ? (
+              <LoadingState label="Loading projects..." />
+            ) : null}
 
-                      <td>{friendlyDate(project.createdAt || project.created_at)}</td>
+            {listStatus === 'ready' && projects.length === 0 ? (
+              <div className="admin-empty">
+                <EmptyState>No projects yet. Add one to get started.</EmptyState>
 
-                      <td>
-                        <div className="admin-row-actions">
-                          <a
-                            className="btn btn-out mini"
-                            href={`/admin/projects/${encodeURIComponent(
-                              project.id,
-                            )}/edit`}>
-                            Edit
-                          </a>
-
-                          <button
-                            className="btn btn-out mini"
-                            type="button"
-                            onClick={() => togglePublished(project)}>
-                            {project.published ? 'Unpublish' : 'Publish'}
-                          </button>
-
-                          <button
-                            className="btn btn-out mini danger-action"
-                            type="button"
-                            onClick={() => remove(project)}>
-                            Delete
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          ) : null}
-        </section>
-      ) : (
-        <section className="rcard glass admin-form admin-project-form">
-          <h2>{route.mode === 'edit' ? 'Edit project' : 'New project'}</h2>
-
-          <form onSubmit={save}>
-            <label>
-              Project title
-              <input
-                required
-                minLength={2}
-                maxLength={200}
-                value={form.title}
-                onChange={field('title')}
-              />
-            </label>
-
-            <label>
-              Project image
-              <input
-                type="file"
-                accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
-                onChange={uploadImage}
-                disabled={imageBusy}
-              />
-              <small>JPG, JPEG, PNG, or WEBP. Maximum 8 MB.</small>
-            </label>
-
-            {form.image ? (
-              <div className="admin-image-preview">
-                <img
-                  src={imageUrl(form.image)}
-                  alt={`Preview of ${form.title || 'project'}`}
-                />
-
-                <button
-                  className="btn btn-text"
-                  type="button"
-                  onClick={() =>
-                    setForm((value) => ({
-                      ...value,
-                      image: '',
-                    }))
-                  }>
-                  Remove image
-                </button>
+                <a className="btn btn-grad" href="/admin/projects/create">
+                  Create your first project <ArrowIcon />
+                </a>
               </div>
             ) : null}
 
-            {imageBusy ? <LoadingState label="Uploading image..." /> : null}
+            {listStatus === 'ready' && projects.length > 0 ? (
+              <div className="admin-table-wrap">
+                <table className="admin-project-table">
+                  <thead>
+                    <tr>
+                      <th>Project</th>
+                      <th>Technologies</th>
+                      <th>Status</th>
+                      <th>Created</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
 
-            <label>
-              Description
-              <textarea
-                required
-                minLength={5}
-                maxLength={10000}
-                value={form.description}
-                onChange={field('description')}
-              />
-            </label>
+                  <tbody>
+                    {projects.map((project) => (
+                      <tr key={project.id}>
+                        <td>
+                          <div className="admin-project-title">
+                            {project.image ? (
+                              <img src={imageUrl(project.image)} alt="" />
+                            ) : (
+                              <span className="admin-image-placeholder">—</span>
+                            )}
 
-            <label>
-              Technologies / languages
-              <input
-                value={form.technologies}
-                onChange={field('technologies')}
-                placeholder="React, Node.js, MySQL"
-              />
-            </label>
+                            <strong>{project.title || 'Untitled project'}</strong>
+                          </div>
+                        </td>
 
-            <label>
-              GitHub URL
-              <input
-                type="url"
-                maxLength={255}
-                value={form.github_url}
-                onChange={field('github_url')}
-                placeholder="https://github.com/..."
-              />
-            </label>
+                        <td>{project.technologies.join(', ') || '—'}</td>
 
-            <label>
-              Live project URL
-              <input
-                type="url"
-                maxLength={255}
-                value={form.project_url}
-                onChange={field('project_url')}
-                placeholder="https://..."
-              />
-            </label>
+                        <td>
+                          <span
+                            className={`project-status ${
+                              project.published ? 'is-published' : ''
+                            }`}>
+                            {project.published ? 'Published' : 'Draft'}
+                          </span>
+                        </td>
 
-            <label className="tgl">
-              <input
-                type="checkbox"
-                checked={form.published}
-                onChange={(event) =>
-                  setForm((value) => ({
-                    ...value,
-                    published: event.target.checked,
-                  }))
-                }
-              />
-              Published
-            </label>
+                        <td>{friendlyDate(project.createdAt || project.created_at)}</td>
 
-            <div className="admin-form-actions">
-              <button className="btn btn-grad" disabled={busy || imageBusy}>
-                {busy
-                  ? 'Saving...'
-                  : route.mode === 'edit'
-                    ? 'Save changes'
-                    : 'Save project'}
+                        <td>
+                          <div className="admin-row-actions">
+                            <a
+                              className="btn btn-out mini"
+                              href={`/admin/projects/${encodeURIComponent(project.id)}`}>
+                              Edit
+                            </a>
 
-                <ArrowIcon />
-              </button>
+                            <button
+                              className="btn btn-out mini"
+                              type="button"
+                              onClick={() => togglePublished(project)}>
+                              {project.published ? 'Unpublish' : 'Publish'}
+                            </button>
 
-              <a className="btn btn-out" href="/admin/projects">
-                Cancel
-              </a>
-            </div>
-
-            {saved ? (
-              <p className="admin-notice" role="status">
-                Saved to the portfolio backend.
-              </p>
+                            <button
+                              className="btn btn-out mini danger-action"
+                              type="button"
+                              onClick={() => remove(project)}>
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             ) : null}
-          </form>
-        </section>
-      )}
-    </main>
+          </section>
+        ) : (
+          <section className="rcard glass admin-form admin-project-form">
+            <h2>{route.mode === 'edit' ? 'Edit project' : 'New project'}</h2>
+
+            <form onSubmit={save}>
+              <label>
+                Project title
+                <input
+                  required
+                  minLength={2}
+                  maxLength={200}
+                  value={form.title}
+                  onChange={field('title')}
+                />
+              </label>
+
+              <label>
+                Project image
+                <input
+                  type="file"
+                  accept=".jpg,.jpeg,.png,.webp,image/jpeg,image/png,image/webp"
+                  onChange={uploadImage}
+                  disabled={imageBusy}
+                />
+                <small>JPG, JPEG, PNG, or WEBP. Maximum 8 MB.</small>
+              </label>
+
+              {form.image ? (
+                <div className="admin-image-preview">
+                  <img
+                    src={imageUrl(form.image)}
+                    alt={`Preview of ${form.title || 'project'}`}
+                  />
+
+                  <button
+                    className="btn btn-text"
+                    type="button"
+                    onClick={() =>
+                      setForm((value) => ({
+                        ...value,
+                        image: '',
+                      }))
+                    }>
+                    Remove image
+                  </button>
+                </div>
+              ) : null}
+
+              {imageBusy ? <LoadingState label="Uploading image..." /> : null}
+
+              <label>
+                Description
+                <textarea
+                  required
+                  minLength={5}
+                  maxLength={10000}
+                  value={form.description}
+                  onChange={field('description')}
+                />
+              </label>
+
+              <label>
+                Technologies / languages
+                <input
+                  value={form.technologies}
+                  onChange={field('technologies')}
+                  placeholder="React, Node.js, MySQL"
+                />
+              </label>
+
+              <label>
+                GitHub URL
+                <input
+                  type="url"
+                  maxLength={255}
+                  value={form.github_url}
+                  onChange={field('github_url')}
+                  placeholder="https://github.com/..."
+                />
+              </label>
+
+              <label>
+                Live project URL
+                <input
+                  type="url"
+                  maxLength={255}
+                  value={form.project_url}
+                  onChange={field('project_url')}
+                  placeholder="https://..."
+                />
+              </label>
+
+              <label className="tgl">
+                <input
+                  type="checkbox"
+                  checked={form.published}
+                  onChange={(event) =>
+                    setForm((value) => ({
+                      ...value,
+                      published: event.target.checked,
+                    }))
+                  }
+                />
+                Published
+              </label>
+
+              <div className="admin-form-actions">
+                <button className="btn btn-grad" disabled={busy || imageBusy}>
+                  {busy
+                    ? 'Saving...'
+                    : route.mode === 'edit'
+                      ? 'Save changes'
+                      : 'Save project'}
+
+                  <ArrowIcon />
+                </button>
+
+                <a className="btn btn-out" href="/admin/projects">
+                  Cancel
+                </a>
+              </div>
+
+              {saved ? (
+                <p className="admin-notice" role="status">
+                  Saved to the portfolio backend.
+                </p>
+              ) : null}
+            </form>
+          </section>
+        )}
+      </div>
+    </AdminLayout>
   );
 }
